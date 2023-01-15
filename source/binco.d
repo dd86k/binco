@@ -38,6 +38,22 @@ enum Base
 
 __gshared int setting_columns = 76;  /// Columns before newline
 
+noreturn abort(string func = __FUNCTION__, A...)(int code, string fmt, A args)
+{
+    stderr.writef("error: (code %d) ", code);
+    debug stderr.write("[", func, "] ");
+    stderr.writefln(fmt, args);
+    exit(code);
+}
+
+noreturn abort(int code, Exception ex)
+{
+    stderr.writef("error: (code %d) ", code);
+    debug stderr.writeln(ex);
+    else stderr.writeln(ex.message);
+    exit(code);
+}
+
 File fileOpen(string path, string mode)
 {
     File file;
@@ -48,21 +64,10 @@ File fileOpen(string path, string mode)
     }
     catch (Exception ex)
     {
-        stderr.writefln("error: %s", ex.message);
-        exit(5);
+        abort(5, ex);
     }
     
     return file;
-}
-
-const(char)[] encode64(ubyte[] data)
-{
-    return Base64.encode(data);
-}
-
-const(char)[] encode(Base base, ubyte[] data)
-{
-    return encode64(data);
 }
 
 immutable string page_secret = q"SECRET
@@ -121,7 +126,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 LICENSE";
 
-int main(string[] args)
+void main(string[] args)
 {
     import std.traits : EnumMembers;
     
@@ -178,20 +183,18 @@ int main(string[] args)
                     else
                         writefln("    %-12s  %s", optLong, help);
             }
-            writeln("\nThis program has {{todo}}.");
-            return 0;
+            writeln("\nThis program has a DNA scanner.");
+            exit(0);
         }
     }
     catch (Exception ex)
     {
-        stderr.writefln("error: %s", ex.message);
-        return 1;
+        abort(1, ex);
     }
     
     if (encodeBase == Base.none && decodeBase == Base.none)
     {
-        stderr.writeln("error: Encoding or decoding base not selected");
-        return 2;
+        abort(2, "Encoding or decoding base not selected");
     }
     
     bool toencode = encodeBase != Base.none;
@@ -199,8 +202,7 @@ int main(string[] args)
     
     if (toencode && todecode)
     {
-        stderr.writeln("error: Cannot encode and decode at the same time");
-        return 3;
+        abort(3, "Cannot encode and decode at the same time");
     }
     
     setting_columns = cast(int)(setting_columns / 1.33333f);
@@ -229,9 +231,6 @@ int main(string[] args)
     }
     catch (Exception ex)
     {
-        stderr.writefln("error: %s", ex.message);
-        exit(6);
+        abort(6, ex);
     }
-    
-    return 0;
 }
