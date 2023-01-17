@@ -29,8 +29,9 @@ enum Base
     //base32z,
     //base36,
     //base58,
-    base64,
-    //base64url,
+    base64,     // Base64
+    base64u,    // Base64 URL no-padding, RFC 4648 and 7515 
+    base64up,   // Base64 URL padded
     //ascii85
     //base91
     //bson
@@ -205,27 +206,50 @@ void main(string[] args)
         abort(3, "Cannot encode and decode at the same time");
     }
     
+    // WARNING: That's for base64, but other bases are going to have
+    //          different ratios
     setting_columns = cast(int)(setting_columns / 1.33333f);
     
     File fileIn  = pathIn  ? fileOpen(pathIn,  "rb") : stdin;
     File fileOut = pathOut ? fileOpen(pathOut, "wb") : stdout;
+    string nl = "\n";
     
     try
     {
         if (toencode)
         {
-            foreach (encoded; Base64.encoder(fileIn.byChunk(setting_columns)))
-            {
-                fileOut.write(encoded);
-                //fileOut.write("\r\n");
-                fileOut.write('\n');
+            switch (encodeBase) with (Base) {
+            case base64:
+                foreach (encoded; Base64.encoder(fileIn.byChunk(setting_columns)))
+                    fileOut.write(encoded, nl);
+                break;
+            case base64u:
+                foreach (encoded; Base64URLNoPadding.encoder(fileIn.byChunk(setting_columns)))
+                    fileOut.write(encoded, nl);
+                break;
+            case base64up:
+                foreach (encoded; Base64URL.encoder(fileIn.byChunk(setting_columns)))
+                    fileOut.write(encoded, nl);
+                break;
+            default: assert(0);
             }
         }
         else
         {
-            foreach (decoded; Base64.decoder(fileIn.byLine()))
-            {
-                fileOut.rawWrite(decoded);
+            switch (decodeBase) with (Base) {
+            case base64:
+                foreach (decoded; Base64.decoder(fileIn.byLine()))
+                    fileOut.rawWrite(decoded);
+                break;
+            case base64u:
+                foreach (decoded; Base64URLNoPadding.decoder(fileIn.byLine()))
+                    fileOut.rawWrite(decoded);
+                break;
+            case base64up:
+                foreach (decoded; Base64URL.decoder(fileIn.byLine()))
+                    fileOut.rawWrite(decoded);
+                break;
+            default: assert(0);
             }
         }
     }
