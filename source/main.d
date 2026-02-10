@@ -84,11 +84,26 @@ int suggestColumns(EncodingType encoding)
     case array_d:
         return 12;
     case base16:
-        return 76 / 2;
     case base64:
     case base64u:
     case base64up:
         return 76;
+    }
+}
+
+int columnsToChunkSize(EncodingType encoding, int cols)
+{
+    final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        return cols;
+    case base16:
+        return cols / 2;
+    case base64:
+    case base64u:
+    case base64up:
+        return cols / 4 * 3;
     }
 }
 
@@ -285,7 +300,7 @@ void main(string[] args)
             default:
             }
 
-            foreach (chunk; fileIn.byChunk(ocolumns))
+            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
                 fileOut.writeln(encodeData(encode, chunk, ouppercase));
 
             switch (encode) with (EncodingType) {
@@ -301,6 +316,7 @@ void main(string[] args)
         }
         else
         {
+            // TODO: Concern: .byLine grows a buffer until a line is met
             foreach (line; fileIn.byLine())
                 fileOut.rawWrite(decodeData(decode, line));
         }
