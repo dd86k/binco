@@ -9,8 +9,31 @@ import std.stdio;
 import std.getopt;
 import core.stdc.stdlib : exit;
 import std.base64;
-import modem;
 import binco.encoding.base16;
+
+// Possible future encodings:
+//base32
+//base32z
+//base36
+//base58
+//ascii85
+//base91
+//base1024     // https://github.com/shea256/emojicoding
+//uuencoding
+//xxencoding
+//bson
+//array_c
+//array_csharp
+//array_d
+//intelhex
+enum EncodingType
+{
+    base16,
+    base64,         // Base64
+    base64u,        // Base64 URL no-padding, RFC 4648 and 7515
+    base64up,       // Base64 URL with padding
+}
+enum NoEncoding = cast(EncodingType)-1;
 
 enum Version   = "0.0.1";
 enum Desc      = "binco "~Version~" (built: "~__TIMESTAMP__~")";
@@ -58,6 +81,34 @@ File fileOpen(string path, string mode)
     }
     
     return file;
+}
+
+char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
+{
+    final switch (encoding) with (EncodingType) {
+    case base16:
+        return base16Encode(data, uppercase).dup;
+    case base64:
+        return Base64.encode(data);
+    case base64u:
+        return Base64URLNoPadding.encode(data);
+    case base64up:
+        return Base64URL.encode(data);
+    }
+}
+
+ubyte[] decodeData(EncodingType encoding, const(char)[] line)
+{
+    final switch (encoding) with (EncodingType) {
+    case base16:
+        return base16Decode(line);
+    case base64:
+        return Base64.decode(line);
+    case base64u:
+        return Base64URLNoPadding.decode(line);
+    case base64up:
+        return Base64URL.decode(line);
+    }
 }
 
 immutable string page_secret = q"SECRET
@@ -126,6 +177,8 @@ void main(string[] args)
     int ocolumns;       /// Columns before newline
     bool ouppercase;
     
+    bool noArgs = args.length <= 1;
+
     GetoptResult res = void;
     try res = getopt(args, config.caseSensitive,
         "tmp000",   "", { // until easter egg gets a better name
@@ -133,14 +186,13 @@ void main(string[] args)
             exit(0);
         },
         "cols",     "Line length when encoding", &ocolumns,
-        "upper",    "Use lowercase hex digits (base16)", &ouppercase,
+        "upper",    "Use uppercase hex digits (base16)", &ouppercase,
         "e|encode", "Select encoding mode and format", &encode,
         "d|decode", "Select decoding mode and format", &decode,
         "i|input",  "File input (default: stdin)", &pathIn,
         "o|output", "File output (default: stdout)", &pathOut,
         "list",     "List available formats", {
-            writeln("Formats available:");
-            foreach (member; EnumMembers!EncodingType[1..$])
+            foreach (member; EnumMembers!EncodingType)
                 writeln(member);
             exit(0);
         },
@@ -162,7 +214,7 @@ void main(string[] args)
         abort(1, ex);
     }
         
-    if (res.helpWanted || args.length <= 1)
+    if (res.helpWanted || noArgs)
     {
         writeln(
         "Binary-Text Encoder/Decoder\n"~
@@ -184,69 +236,33 @@ void main(string[] args)
     
     bool wantEncode = encode != NoEncoding;
     bool wantDecode = decode != NoEncoding;
-    
-    if (wantEncode == false && wantDecode == false)
-    {
+
+    if (!wantEncode && !wantDecode)
         abort(2, "Encoding or decoding base not selected");
-    }
-    
-    if (wantEncode && wantDecode)
-    {
-        // TODO: Decode + Re-encode when wantBoth?
-        abort(3, "Cannot encode and decode at the same time");
-    }
-    
-    EncodingType activeEncoding = wantEncode ? encode : decode;
-    
-    /*
-    if (activeEncoding == EncodingType.base16)
-        setting_columns = setting_columns / 2;  // base16: 2 hex chars per byte
-    else
-        setting_columns = cast(int)(setting_columns / 1.33333333f);  // base64: 4:3 ratio
-    */
-    if (ocolumns == int.init)
-        ocolumns = suggestColumns(activeEncoding);
-    
+
+    if (ocolumns == int.init && wantEncode)
+        ocolumns = suggestColumns(encode);
+
     File fileIn  = pathIn  ? fileOpen(pathIn,  "rb") : stdin;
     File fileOut = pathOut ? fileOpen(pathOut, "wb") : stdout;
-    string nl = "\n";
-    
+
     try
     {
-        switch (activeEncoding) with (EncodingType) {
-        case base16:
-            if (wantEncode)
-                foreach (chunk; fileIn.byChunk(ocolumns))
-                    fileOut.write(base16Encode(chunk, ouppercase), nl);
-            else
-                foreach (line; fileIn.byLine())
-                    fileOut.rawWrite(base16Decode(line));
-            return;
-        case base64:
-            if (wantEncode)
-                foreach (encoded; Base64.encoder(fileIn.byChunk(ocolumns)))
-                    fileOut.write(encoded, nl);
-            else
-                foreach (decoded; Base64.decoder(fileIn.byLine()))
-                    fileOut.rawWrite(decoded);
-            return;
-        case base64u:
-            if (wantEncode)
-                foreach (encoded; Base64URLNoPadding.encoder(fileIn.byChunk(ocolumns)))
-                    fileOut.write(encoded, nl);
-            else
-                foreach (decoded; Base64URLNoPadding.decoder(fileIn.byLine()))
-                    fileOut.rawWrite(decoded);
-            return;
-        case base64up:
-            if (wantEncode)
-                foreach (encoded; Base64URL.encoder(fileIn.byChunk(ocolumns)))
-                    fileOut.write(encoded, nl);
-            else
-                foreach (decoded; Base64URL.decoder(fileIn.byLine()))
-                    fileOut.rawWrite(decoded);
-            return;
-        default: assert(0);
+        if (wantEncode && wantDecode)
+        {
+            // Re-encode: decode from one format, encode to another
+            foreach (line; fileIn.byLine())
+                fileOut.writeln(encodeData(encode, decodeData(decode, line), ouppercase));
+        }
+        else if (wantEncode)
+        {
+            foreach (chunk; fileIn.byChunk(ocolumns))
+                fileOut.writeln(encodeData(encode, chunk, ouppercase));
+        }
+        else
+        {
+            foreach (line; fileIn.byLine())
+                fileOut.rawWrite(decodeData(decode, line));
         }
     }
     catch (Exception ex)
