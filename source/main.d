@@ -6,6 +6,7 @@
 module main;
 
 import binco.encoding.base16;
+import binco.encoding.uuencode;
 import core.stdc.stdlib : exit;
 import std.base64;
 import std.getopt;
@@ -21,8 +22,6 @@ import std.traits : EnumMembers;
 //ascii85
 //base91
 //base1024      // https://github.com/shea256/emojicoding
-//uuencoding
-//xxencoding
 //array_c (output only)
 //array_csharp (output only)
 //array_d (output only)
@@ -36,6 +35,8 @@ enum EncodingType
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
     base64up,       // Base64 URL with padding
+    uuencode,
+    xxencode,
 }
 enum ENCODINGS  = EnumMembers!EncodingType.length;
 enum NoEncoding = cast(EncodingType)-1;
@@ -48,6 +49,8 @@ immutable string[] descriptions = [
     "Base64",
     "Base64 URL without padding, RFC 4648 and 7515",
     "Base64 URL with padding",
+    "UUEncoding",
+    "XXEncoding",
 ];
 static assert(descriptions.length == ENCODINGS, "Missing descriptions");
 string description(EncodingType encoding)
@@ -88,6 +91,9 @@ int suggestColumns(EncodingType encoding)
     case base64u:
     case base64up:
         return 76;
+    case uuencode:
+    case xxencode:
+        return 61;
     }
 }
 
@@ -104,6 +110,9 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case base64u:
     case base64up:
         return cols / 4 * 3;
+    case uuencode:
+    case xxencode:
+        return (cols - 1) / 4 * 3;
     }
 }
 
@@ -125,6 +134,7 @@ File fileOpen(string path, string mode)
 
 char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
 {
+    // TODO: Concern: .dup doesn't re-use gc buffer but creates a new one every time
     final switch (encoding) with (EncodingType) {
     case array_c:
     case array_csharp:
@@ -138,6 +148,10 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return Base64URLNoPadding.encode(data);
     case base64up:
         return Base64URL.encode(data);
+    case uuencode:
+        return uuEncode(data).dup;
+    case xxencode:
+        return uuEncode(data, true).dup;
     }
 }
 
@@ -173,6 +187,10 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         return Base64URLNoPadding.decode(line);
     case base64up:
         return Base64URL.decode(line);
+    case uuencode:
+        return uuDecode(line);
+    case xxencode:
+        return uuDecode(line, true);
     }
 }
 
@@ -210,6 +228,7 @@ void main(string[] args)
     
     bool noArgs = args.length <= 1;
 
+    // TODO: EncodingType selectEncoding(string) for aliases
     GetoptResult res = void;
     try res = getopt(args, config.caseSensitive,
         "tmp000",   "", { // until easter egg gets a better name
@@ -287,6 +306,7 @@ void main(string[] args)
         }
         else if (wantEncode)
         {
+            // File prefix
             switch (encode) with (EncodingType) {
             case EncodingType.array_c:
                 fileOut.writeln("unsigned char data[] = {");
@@ -297,12 +317,17 @@ void main(string[] args)
             case EncodingType.array_d:
                 fileOut.writeln("ubyte[] data = [");
                 break;
+            case EncodingType.uuencode:
+            case EncodingType.xxencode:
+                fileOut.writeln("begin 644 data");
+                break;
             default:
             }
 
             foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
                 fileOut.writeln(encodeData(encode, chunk, ouppercase));
 
+            // File suffix
             switch (encode) with (EncodingType) {
             case EncodingType.array_c:
             case EncodingType.array_csharp:
@@ -311,14 +336,28 @@ void main(string[] args)
             case EncodingType.array_d:
                 fileOut.writeln("];");
                 break;
+            case EncodingType.uuencode:
+            case EncodingType.xxencode:
+                fileOut.writeln("`");
+                fileOut.writeln("end");
+                break;
             default:
             }
         }
         else
         {
+            bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
             // TODO: Concern: .byLine grows a buffer until a line is met
             foreach (line; fileIn.byLine())
+            {
+                if (isUUXX)
+                {
+                    import std.algorithm : startsWith;
+                    if (line.startsWith("begin ") || line == "end" || line == "`")
+                        continue;
+                }
                 fileOut.rawWrite(decodeData(decode, line));
+            }
         }
     }
     catch (Exception ex)
