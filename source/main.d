@@ -13,22 +13,25 @@ import std.stdio;
 import std.traits : EnumMembers;
 
 // Possible future encodings:
-//base32
-//base32z
+//base32        // RFC 4648 Base32 §6 alphabet
+//base32h       // RFC 4648 Base32 §7 "extended hex" alphabet
+//base32z       // Z-Base32
 //base36
 //base58
 //ascii85
 //base91
-//base1024     // https://github.com/shea256/emojicoding
+//base1024      // https://github.com/shea256/emojicoding
 //uuencoding
 //xxencoding
-//bson
-//array_c
-//array_csharp
-//array_d
+//array_c (output only)
+//array_csharp (output only)
+//array_d (output only)
 //intelhex
 enum EncodingType
 {
+    array_c,
+    array_csharp,
+    array_d,
     base16,
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
@@ -38,6 +41,9 @@ enum ENCODINGS  = EnumMembers!EncodingType.length;
 enum NoEncoding = cast(EncodingType)-1;
 
 immutable string[] descriptions = [
+    "C array (encoding only)",
+    "C# array (encoding only)",
+    "D array (encoding only)",
     "Hexadecimal",
     "Base64",
     "Base64 URL without padding, RFC 4648 and 7515",
@@ -73,6 +79,10 @@ noreturn abort(int code, Exception ex)
 int suggestColumns(EncodingType encoding)
 {
     final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        return 12;
     case base16:
         return 76 / 2;
     case base64:
@@ -101,6 +111,10 @@ File fileOpen(string path, string mode)
 char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
 {
     final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        return arrayEncode(data, uppercase);
     case base16:
         return base16Encode(data, uppercase).dup;
     case base64:
@@ -112,9 +126,30 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
     }
 }
 
+char[] arrayEncode(const(ubyte)[] data, bool uppercase)
+{
+    import std.format : formattedWrite;
+    import std.array : Appender, appender;
+
+    Appender!(char[]) buf = appender!(char[]);
+    buf.put("    ");
+    string fmt = uppercase ? "0x%02X" : "0x%02x";
+    foreach (i, b; data)
+    {
+        if (i) buf.put(", ");
+        buf.formattedWrite(fmt, b);
+    }
+    return buf[];
+}
+
 ubyte[] decodeData(EncodingType encoding, const(char)[] line)
 {
+    import std.conv : text;
     final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        throw new Exception(text("Decoding not supported for ", encoding));
     case base16:
         return base16Decode(line);
     case base64:
@@ -237,8 +272,32 @@ void main(string[] args)
         }
         else if (wantEncode)
         {
+            switch (encode) with (EncodingType) {
+            case EncodingType.array_c:
+                fileOut.writeln("unsigned char data[] = {");
+                break;
+            case EncodingType.array_csharp:
+                fileOut.writeln("static readonly byte[] data = new byte[] {");
+                break;
+            case EncodingType.array_d:
+                fileOut.writeln("ubyte[] data = [");
+                break;
+            default:
+            }
+
             foreach (chunk; fileIn.byChunk(ocolumns))
                 fileOut.writeln(encodeData(encode, chunk, ouppercase));
+
+            switch (encode) with (EncodingType) {
+            case EncodingType.array_c:
+            case EncodingType.array_csharp:
+                fileOut.writeln("};");
+                break;
+            case EncodingType.array_d:
+                fileOut.writeln("];");
+                break;
+            default:
+            }
         }
         else
         {
