@@ -1,44 +1,69 @@
-# Binco: Binary Encoder/Decoder
+# Binco: Binary-Text Encoder-Decoder
 
-Something I made quick for myself.
+binco is a CLI-oriented binary-text encoder and decoder.
+
+Currently supports:
+- `array_c`: C array (encoding only)
+- `array_csharp`: C# array (encoding only)
+- `array_d`: D array (encoding only)
+- `base16`: Hexadecimal
+- `base64`: Base64
+- `base64u`: Base64 URL without padding, RFC 4648 and 7515
+- `base64up`: Base64 URL with padding
 
 # Usage
 
-First, you need to specify `-e|--encode` or `-d|--decode` to select an
-operation mode, then add the format to use (e.g., `-e base64`).
+An encoding (using `-e`) or decoding (`-d`) scheme needs to be specified.
 
 By default, stdin and stdout streams are used for input and output.
 
-To specify a file input, use `-i|--input`. And file output, use `-o|--output`.
+To specify a file input, use `-i|--input`. For file output, use `-o|--output`.
 
 Encode file and show result to stdout:
-```text
+```sh
 $ binco -e base64 -i dub.sdl
 bmFtZSAiYmluY28iCmRlc2NyaXB0aW9uICJCaW5hcnkgRW5jb2Rlci9EZWNvZGVyIgphdXRob3Jz
 ICJkZDg2ayA8ZGRAZGF4Lm1vZT4iCmNvcHlyaWdodCAiQ29weXJpZ2h0IMKpIDIwMjMsIGRkODZr
-IDxkZEBkYXgubW9lPiIKbGljZW5zZSAiQlNELTMtQ2xhdXNlIgoKdGFyZ2V0VHlwZSAiZXhlY3V0
-YWJsZSI=
+IDxkZEBkYXgubW9lPiIKbGljZW5zZSAiQlNELTMtQ2xhdXNlLUNsZWFyIgoKdGFyZ2V0VHlwZSAi
+ZXhlY3V0YWJsZSIKCnN0cmluZ0ltcG9ydFBhdGhzICIuIg==
 ```
 
 Encode stream to base64:
-```text
+```sh
 $ echo 123 | binco -e base64
 MTIzIA0K
 ```
 
+Encode file as a C array:
+```sh
+$ binco -i bin -e array_c
+```
+
 Decode file to another file:
-```text
-$ binco -d base64 -i example.txt -o example.exe
+```sh
+$ binco -i example.txt -d base64 -o example.exe
+```
+
+Transcode a file to another encoding:
+```sh
+$ binco -i a.txt -d base16 -e base64 -o b.txt
 ```
 
 # Limitations
-
-## Only Base64 (for now)
-
-I need to create a wrapper for encoders/decoders before adding other binary
-formats.
 
 ## Newlines
 
 Currently, due to a limitation to `File.byLine`, only the `\n` line terminator
 is understood by the decoder.
+
+# Building
+
+To build binco, you'll need any D compiler (dmd, gdc, ldc) and dub.
+
+Tests: `dub test`
+
+Debug build: `dub build`
+
+Release build: `dub build -b release`
+
+With LDC: `dub build -b release --compiler=ldc2`
