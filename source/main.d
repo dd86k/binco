@@ -35,7 +35,7 @@ enum EncodingType
 }
 enum NoEncoding = cast(EncodingType)-1;
 
-enum Version   = "0.0.1";
+enum Version   = "0.1.0";
 enum Desc      = "binco "~Version~" (built: "~__TIMESTAMP__~")";
 enum Copyright = "Copyright (c) 2023 dd86k <dd@dax.moe>";
 
