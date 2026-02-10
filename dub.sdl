@@ -5,3 +5,5 @@ copyright "Copyright © 2023, dd86k <dd@dax.moe>"
 license "BSD-3-Clause-Clear"
 
 targetType "executable"
+
+stringImportPaths "."

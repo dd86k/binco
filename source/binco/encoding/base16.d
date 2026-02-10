@@ -1,3 +1,8 @@
+/// Command-line interface and application.
+///
+/// Authors: dd86k <dd@dax.moe>
+/// Copyright: dd86k <dd@dax.moe>
+/// License: BSD-3-Clause-Clear
 module binco.encoding.base16;
 
 string base16Encode(const(ubyte)[] data, bool upper = true)
