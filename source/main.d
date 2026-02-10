@@ -3,41 +3,18 @@
 /// Authors: dd86k <dd@dax.moe>
 /// Copyright: dd86k <dd@dax.moe>
 /// License: BSD-3-Clause-Clear
-module binco;
+module main;
 
 import std.stdio;
 import std.getopt;
 import core.stdc.stdlib : exit;
 import std.base64;
-/*static import std.file;
-import std.algorithm : chunkBy;
-import std.string : lineSplitter;
-
-alias readAll = std.file.read;
-alias readAllText = std.file.readText;
-alias writeAll = std.file.write;*/
+import modem;
+import binco.encoding.base16;
 
 enum Version   = "0.0.1";
 enum Desc      = "binco "~Version~" (built: "~__TIMESTAMP__~")";
 enum Copyright = "Copyright (c) 2023 dd86k <dd@dax.moe>";
-
-enum Base
-{
-    none,
-    //base16,
-    //base32,
-    //base32z,
-    //base36,
-    //base58,
-    base64,     // Base64
-    base64u,    // Base64 URL no-padding, RFC 4648 and 7515 
-    base64up,   // Base64 URL padded
-    //ascii85
-    //base91
-    //bson
-}
-
-__gshared int setting_columns = 76;  /// Columns before newline
 
 noreturn abort(string func = __FUNCTION__, A...)(int code, string fmt, A args)
 {
@@ -53,6 +30,18 @@ noreturn abort(int code, Exception ex)
     debug stderr.writeln(ex);
     else stderr.writeln(ex.message);
     exit(code);
+}
+
+int suggestColumns(EncodingType encoding)
+{
+    final switch (encoding) with (EncodingType) {
+    case base16:
+        return 76 / 2;
+    case base64:
+    case base64u:
+    case base64up:
+        return 76;
+    }
 }
 
 File fileOpen(string path, string mode)
@@ -132,83 +121,91 @@ void main(string[] args)
     import std.traits : EnumMembers;
     
     string pathIn, pathOut;
-    Base encodeBase, decodeBase;
+    EncodingType encode = NoEncoding;
+    EncodingType decode = NoEncoding;
+    int ocolumns;       /// Columns before newline
+    bool ouppercase;
     
-    try
-    {
-        bool noarg = args.length == 1;
-        
-        GetoptResult res = getopt(args, config.caseSensitive,
-            "tmp000",   "", {
-                writeln(page_secret);
-                exit(0);
-            },
-            "cols",     "Line length when encoding", &setting_columns,
-            "e|encode", "Select encoding mode and format", &encodeBase,
-            "d|decode", "Select decoding mode and format", &decodeBase,
-            "i|input",  "File input (default: stdin)", &pathIn,
-            "o|output", "File output (default: stdout)", &pathOut,
-            "list",     "List available formats", {
-                writeln("Formats available:");
-                foreach (member; EnumMembers!Base[1..$])
-                    writeln(member);
-                exit(0);
-            },
-            "version",  "Show software version page", {
-                writeln(page_version);
-                exit(0);
-            },
-            "ver",      "Show software version", {
-                writeln(Version);
-                exit(0);
-            },
-            "license",  "Show software license", {
-                writeln(page_license);
-                exit(0);
-            },
-        );
-        
-        if (res.helpWanted || noarg)
-        {
-            writeln(
-            "Binary-Text Encoder/Decoder\n"~
-            "\n"~
-            "OPTIONS"
-            );
-            res.options[$-1].help = "Show this help page and quit.";
-            foreach (Option opt; res.options[1..$])
-            {
-                with (opt)
-                    if (optShort)
-                        writefln("%s, %-12s  %s", optShort, optLong, help);
-                    else
-                        writefln("    %-12s  %s", optLong, help);
-            }
-            writeln("\nThis program has a DNA scanner.");
+    GetoptResult res = void;
+    try res = getopt(args, config.caseSensitive,
+        "tmp000",   "", { // until easter egg gets a better name
+            writeln(page_secret);
             exit(0);
-        }
-    }
+        },
+        "cols",     "Line length when encoding", &ocolumns,
+        "upper",    "Use lowercase hex digits (base16)", &ouppercase,
+        "e|encode", "Select encoding mode and format", &encode,
+        "d|decode", "Select decoding mode and format", &decode,
+        "i|input",  "File input (default: stdin)", &pathIn,
+        "o|output", "File output (default: stdout)", &pathOut,
+        "list",     "List available formats", {
+            writeln("Formats available:");
+            foreach (member; EnumMembers!EncodingType[1..$])
+                writeln(member);
+            exit(0);
+        },
+        "version",  "Show software version page", {
+            writeln(page_version);
+            exit(0);
+        },
+        "ver",      "Show software version", {
+            writeln(Version);
+            exit(0);
+        },
+        "license",  "Show software license", {
+            writeln(page_license);
+            exit(0);
+        },
+    );
     catch (Exception ex)
     {
         abort(1, ex);
     }
+        
+    if (res.helpWanted || args.length <= 1)
+    {
+        writeln(
+        "Binary-Text Encoder/Decoder\n"~
+        "\n"~
+        "OPTIONS"
+        );
+        res.options[$-1].help = "Show this help page and quit.";
+        foreach (Option opt; res.options[1..$]) // first is easter egg
+        {
+            with (opt)
+            if (optShort)
+                writefln("%s, %-12s  %s", optShort, optLong, help);
+            else
+                writefln("    %-12s  %s", optLong, help);
+        }
+        writeln("\nThis program has a DNA scanner.");
+        exit(0);
+    }
     
-    if (encodeBase == Base.none && decodeBase == Base.none)
+    bool wantEncode = encode != NoEncoding;
+    bool wantDecode = decode != NoEncoding;
+    
+    if (wantEncode == false && wantDecode == false)
     {
         abort(2, "Encoding or decoding base not selected");
     }
     
-    bool toencode = encodeBase != Base.none;
-    bool todecode = decodeBase != Base.none;
-    
-    if (toencode && todecode)
+    if (wantEncode && wantDecode)
     {
+        // TODO: Decode + Re-encode when wantBoth?
         abort(3, "Cannot encode and decode at the same time");
     }
     
-    // WARNING: That's for base64, but other bases are going to have
-    //          different ratios
-    setting_columns = cast(int)(setting_columns / 1.33333f);
+    EncodingType activeEncoding = wantEncode ? encode : decode;
+    
+    /*
+    if (activeEncoding == EncodingType.base16)
+        setting_columns = setting_columns / 2;  // base16: 2 hex chars per byte
+    else
+        setting_columns = cast(int)(setting_columns / 1.33333333f);  // base64: 4:3 ratio
+    */
+    if (ocolumns == int.init)
+        ocolumns = suggestColumns(activeEncoding);
     
     File fileIn  = pathIn  ? fileOpen(pathIn,  "rb") : stdin;
     File fileOut = pathOut ? fileOpen(pathOut, "wb") : stdout;
@@ -216,41 +213,40 @@ void main(string[] args)
     
     try
     {
-        if (toencode)
-        {
-            switch (encodeBase) with (Base) {
-            case base64:
-                foreach (encoded; Base64.encoder(fileIn.byChunk(setting_columns)))
+        switch (activeEncoding) with (EncodingType) {
+        case base16:
+            if (wantEncode)
+                foreach (chunk; fileIn.byChunk(ocolumns))
+                    fileOut.write(base16Encode(chunk, ouppercase), nl);
+            else
+                foreach (line; fileIn.byLine())
+                    fileOut.rawWrite(base16Decode(line));
+            return;
+        case base64:
+            if (wantEncode)
+                foreach (encoded; Base64.encoder(fileIn.byChunk(ocolumns)))
                     fileOut.write(encoded, nl);
-                break;
-            case base64u:
-                foreach (encoded; Base64URLNoPadding.encoder(fileIn.byChunk(setting_columns)))
-                    fileOut.write(encoded, nl);
-                break;
-            case base64up:
-                foreach (encoded; Base64URL.encoder(fileIn.byChunk(setting_columns)))
-                    fileOut.write(encoded, nl);
-                break;
-            default: assert(0);
-            }
-        }
-        else
-        {
-            switch (decodeBase) with (Base) {
-            case base64:
+            else
                 foreach (decoded; Base64.decoder(fileIn.byLine()))
                     fileOut.rawWrite(decoded);
-                break;
-            case base64u:
+            return;
+        case base64u:
+            if (wantEncode)
+                foreach (encoded; Base64URLNoPadding.encoder(fileIn.byChunk(ocolumns)))
+                    fileOut.write(encoded, nl);
+            else
                 foreach (decoded; Base64URLNoPadding.decoder(fileIn.byLine()))
                     fileOut.rawWrite(decoded);
-                break;
-            case base64up:
+            return;
+        case base64up:
+            if (wantEncode)
+                foreach (encoded; Base64URL.encoder(fileIn.byChunk(ocolumns)))
+                    fileOut.write(encoded, nl);
+            else
                 foreach (decoded; Base64URL.decoder(fileIn.byLine()))
                     fileOut.rawWrite(decoded);
-                break;
-            default: assert(0);
-            }
+            return;
+        default: assert(0);
         }
     }
     catch (Exception ex)
