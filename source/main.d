@@ -5,11 +5,12 @@
 /// License: BSD-3-Clause-Clear
 module main;
 
-import std.stdio;
-import std.getopt;
+import binco.encoding.base16;
 import core.stdc.stdlib : exit;
 import std.base64;
-import binco.encoding.base16;
+import std.getopt;
+import std.stdio;
+import std.traits : EnumMembers;
 
 // Possible future encodings:
 //base32
@@ -33,7 +34,21 @@ enum EncodingType
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
     base64up,       // Base64 URL with padding
 }
+enum ENCODINGS  = EnumMembers!EncodingType.length;
 enum NoEncoding = cast(EncodingType)-1;
+
+immutable string[] descriptions = [
+    "Hexadecimal",
+    "Base64",
+    "Base64 URL without padding, RFC 4648 and 7515",
+    "Base64 URL with padding",
+];
+static assert(descriptions.length == ENCODINGS, "Missing descriptions");
+string description(EncodingType encoding)
+{
+    size_t i = cast(size_t)encoding;
+    return descriptions[i];
+}
 
 enum Version   = "0.1.0";
 enum Desc      = "binco "~Version~" (built: "~__TIMESTAMP__~")";
@@ -193,7 +208,7 @@ void main(string[] args)
         "o|output", "File output (default: stdout)", &pathOut,
         "list",     "List available formats", {
             foreach (member; EnumMembers!EncodingType)
-                writeln(member);
+                writeln(member, "\t: ", description(member));
             exit(0);
         },
         "version",  "Show software version page", {
