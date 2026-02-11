@@ -60,7 +60,6 @@ string description(EncodingType encoding)
 }
 
 enum Version   = "0.1.0";
-enum Desc      = "binco "~Version~" (built: "~__TIMESTAMP__~")";
 enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
 
 noreturn abort(string func = __FUNCTION__, A...)(int code, string fmt, A args)
@@ -278,13 +277,13 @@ The year is 2032,
  OO   oo   OO   oo   OO
 SECRET";
 
-immutable string page_version =
-    Desc~"\n"~
-    Copyright~"\n"~
-    "License: BSD-3-Clause-Clear <https://choosealicense.com/licenses/bsd-3-clause-clear/>\n"~
-    "Homepage: <https://github.com/dd86k/binco>";
-
 immutable string page_license = import("LICENSE");
+
+void versionline(string field, string value)
+{
+    enum PADDING = -12;
+    writefln("%*s%s", PADDING, field, value);
+}
 
 void main(string[] args)
 {
@@ -317,7 +316,15 @@ void main(string[] args)
             exit(0);
         },
         "version",  "Show software version page", {
-            writeln(page_version);
+            import std.format : format;
+            static immutable string line_build = "Built: "~__TIMESTAMP__;
+            static immutable string line_compiler = format(__VENDOR__~" v%d.%d", __VERSION__/1000, __VERSION__%1000);
+            versionline("binco", Version);
+            versionline("", line_build);
+            versionline("", "<https://github.com/dd86k/binco>");
+            versionline("License", "BSD-3-Clause-Clear");
+            versionline("", Copyright);
+            versionline("Compiler", line_compiler);
             exit(0);
         },
         "ver",      "Show software version", {
