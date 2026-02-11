@@ -10,6 +10,10 @@ Currently supports:
 - `base64`: Base64
 - `base64u`: Base64 URL without padding, RFC 4648 and 7515
 - `base64up`: Base64 URL with padding
+- `uuencode`: UUEncoding
+- `xxencode`: XXEncoding
+
+Why? Well, I want to stop using random websites for this sort of thing.
 
 # Usage
 
