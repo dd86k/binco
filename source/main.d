@@ -5,8 +5,7 @@
 /// License: BSD-3-Clause-Clear
 module main;
 
-import binco.encoding.base16;
-import binco.encoding.uuencode;
+import binco.encoding;
 import core.stdc.stdlib : exit;
 import std.base64;
 import std.getopt;
@@ -22,10 +21,6 @@ import std.traits : EnumMembers;
 //ascii85
 //base91
 //base1024      // https://github.com/shea256/emojicoding
-//array_c (output only)
-//array_csharp (output only)
-//array_d (output only)
-//intelhex
 enum EncodingType
 {
     array_c,
@@ -35,6 +30,7 @@ enum EncodingType
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
     base64up,       // Base64 URL with padding
+    intelhex,
     uuencode,
     xxencode,
 }
@@ -49,6 +45,7 @@ immutable string[] descriptions = [
     "Base64",
     "Base64 URL without padding, RFC 4648 and 7515",
     "Base64 URL with padding",
+    "Intel HEX",
     "UUEncoding",
     "XXEncoding",
 ];
@@ -91,6 +88,8 @@ int suggestColumns(EncodingType encoding)
     case base64u:
     case base64up:
         return 76;
+    case intelhex:
+        return 43;
     case uuencode:
     case xxencode:
         return 61;
@@ -110,6 +109,8 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case base64u:
     case base64up:
         return cols / 4 * 3;
+    case intelhex:
+        return (cols - 11) / 2;
     case uuencode:
     case xxencode:
         return (cols - 1) / 4 * 3;
@@ -148,6 +149,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return Base64URLNoPadding.encode(data);
     case base64up:
         return Base64URL.encode(data);
+    case intelhex:
+        return intelHexEncode(data, 0).dup;
     case uuencode:
         return uuEncode(data).dup;
     case xxencode:
@@ -187,6 +190,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         return Base64URLNoPadding.decode(line);
     case base64up:
         return Base64URL.decode(line);
+    case intelhex:
+        return intelHexDecode(line);
     case uuencode:
         return uuDecode(line);
     case xxencode:
@@ -302,7 +307,14 @@ void main(string[] args)
         {
             // Re-encode: decode from one format, encode to another
             foreach (line; fileIn.byLine())
-                fileOut.writeln(encodeData(encode, decodeData(decode, line), ouppercase));
+            {
+                ubyte[] decoded = decodeData(decode, line);
+                // Intel HEX line can be of another type of 00
+                // In that case, disregard line (silently)
+                if (decoded is null)
+                    continue;
+                fileOut.writeln(encodeData(encode, decoded, ouppercase));
+            }
         }
         else if (wantEncode)
         {
@@ -324,8 +336,19 @@ void main(string[] args)
             default:
             }
 
-            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
-                fileOut.writeln(encodeData(encode, chunk, ouppercase));
+            switch (encode) with (EncodingType) {
+            case intelhex:
+                ushort addr = 0;
+                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+                {
+                    fileOut.writeln(intelHexEncode(chunk, addr));
+                    addr += cast(ushort) chunk.length;
+                }
+                break;
+            default:
+                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+                    fileOut.writeln(encodeData(encode, chunk, ouppercase));
+            }
 
             // File suffix
             switch (encode) with (EncodingType) {
@@ -335,6 +358,9 @@ void main(string[] args)
                 break;
             case EncodingType.array_d:
                 fileOut.writeln("];");
+                break;
+            case EncodingType.intelhex:
+                fileOut.writeln(intelHexEof());
                 break;
             case EncodingType.uuencode:
             case EncodingType.xxencode:
@@ -347,6 +373,7 @@ void main(string[] args)
         else
         {
             bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
+            bool isIntelHex = (decode == EncodingType.intelhex);
             // TODO: Concern: .byLine grows a buffer until a line is met
             foreach (line; fileIn.byLine())
             {
@@ -356,7 +383,14 @@ void main(string[] args)
                     if (line.startsWith("begin ") || line == "end" || line == "`")
                         continue;
                 }
-                fileOut.rawWrite(decodeData(decode, line));
+                if (isIntelHex)
+                {
+                    ubyte[] data = intelHexDecode(line);
+                    if (data !is null)
+                        fileOut.rawWrite(data);
+                }
+                else
+                    fileOut.rawWrite(decodeData(decode, line));
             }
         }
     }
