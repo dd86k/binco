@@ -7,3 +7,16 @@ license "BSD-3-Clause-Clear"
 targetType "executable"
 
 stringImportPaths "."
+
+buildType "static-debug" {
+    buildOptions "debugMode" "debugInfo"
+	dflags "-L=-static" platform="dmd"
+	dflags "-Wl,-static" "-static" "-static-libgcc" platform="gdc"
+	dflags "--static" platform="ldc"
+}
+buildType "static-release" {
+    buildOptions "releaseMode" "optimize" "inline"
+	dflags "-L=-static" platform="dmd"
+	dflags "-Wl,-static" "-static" "-static-libgcc" platform="gdc"
+	dflags "--static" platform="ldc"
+}
