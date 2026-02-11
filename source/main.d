@@ -306,6 +306,8 @@ void main(string[] args)
     EncodingType decode = NoEncoding;
     int ocolumns;       /// Columns before newline
     bool ouppercase;
+    bool onoprefix;     /// If set, do not print prefix
+    bool onosuffix;     /// If set, do not print suffix
     
     bool noArgs = args.length <= 1;
 
@@ -322,6 +324,10 @@ void main(string[] args)
         "d|decode", "Select decoding mode and format", &decode,
         "i|input",  "File input (default: stdin)", &pathIn,
         "o|output", "File output (default: stdout)", &pathOut,
+        config.bundling,
+        "P|no-prefix", "If set, do not print prefix", &onoprefix,
+        config.bundling,
+        "S|no-suffix", "If set, do not print suffix", &onosuffix,
         "list",     "List available formats", {
             foreach (member; EnumMembers!EncodingType)
                 writeln(member, "\t: ", description(member));
@@ -387,7 +393,7 @@ void main(string[] args)
 
     try
     {
-        if (wantEncode)
+        if (wantEncode && onoprefix == false)
             encodingPrefix(encode, fileOut);
         
         if (wantEncode && wantDecode) // re-encode
@@ -481,7 +487,7 @@ void main(string[] args)
             }
         }
         
-        if (wantEncode)
+        if (wantEncode && onosuffix == false)
             encodingSuffix(encode, fileOut);
     }
     catch (Exception ex)
