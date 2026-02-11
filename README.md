@@ -6,10 +6,12 @@ Currently supports:
 - `array_c`: C array (encoding only)
 - `array_csharp`: C# array (encoding only)
 - `array_d`: D array (encoding only)
+- `ascii85`: Ascii85
 - `base16`: Hexadecimal
 - `base64`: Base64
 - `base64u`: Base64 URL without padding, RFC 4648 and 7515
 - `base64up`: Base64 URL with padding
+- `base91`: Base91
 - `intelhex`: Intel HEX (entry types `00` and `01` only)
 - `uuencode`: UUEncoding
 - `xxencode`: XXEncoding
