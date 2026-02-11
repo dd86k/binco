@@ -199,6 +199,48 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
     }
 }
 
+void encodingPrefix(EncodingType encoding, ref File file)
+{
+    switch (encoding) with (EncodingType) {
+    case EncodingType.array_c:
+        file.writeln("unsigned char data[] = {");
+        break;
+    case EncodingType.array_csharp:
+        file.writeln("static readonly byte[] data = new byte[] {");
+        break;
+    case EncodingType.array_d:
+        file.writeln("ubyte[] data = [");
+        break;
+    case EncodingType.uuencode:
+    case EncodingType.xxencode:
+        file.writeln("begin 644 data");
+        break;
+    default:
+    }
+}
+
+void encodingSuffix(EncodingType encoding, ref File file)
+{
+    switch (encoding) with (EncodingType) {
+    case EncodingType.array_c:
+    case EncodingType.array_csharp:
+        file.writeln("};");
+        break;
+    case EncodingType.array_d:
+        file.writeln("];");
+        break;
+    case EncodingType.intelhex:
+        file.writeln(intelHexEof());
+        break;
+    case EncodingType.uuencode:
+    case EncodingType.xxencode:
+        file.writeln("`");
+        file.writeln("end");
+        break;
+    default:
+    }
+}
+
 immutable string page_secret = q"SECRET
 The year is 2032,
 
@@ -293,7 +335,7 @@ void main(string[] args)
     bool wantDecode = decode != NoEncoding;
 
     if (!wantEncode && !wantDecode)
-        abort(2, "Encoding or decoding base not selected");
+        abort(1, "Encoding or decoding base not selected");
 
     if (ocolumns == int.init && wantEncode)
         ocolumns = suggestColumns(encode);
@@ -303,9 +345,13 @@ void main(string[] args)
 
     try
     {
-        if (wantEncode && wantDecode)
+        if (wantEncode)
+            encodingPrefix(encode, fileOut);
+        
+        if (wantEncode && wantDecode) // re-encode
         {
-            // Re-encode: decode from one format, encode to another
+            // Re-encode loop with Intel HEX address tracking
+            ushort ihexAddr;
             foreach (line; fileIn.byLine())
             {
                 ubyte[] decoded = decodeData(decode, line);
@@ -313,32 +359,20 @@ void main(string[] args)
                 // In that case, disregard line (silently)
                 if (decoded is null)
                     continue;
-                fileOut.writeln(encodeData(encode, decoded, ouppercase));
+                if (encode == EncodingType.intelhex)
+                {
+                    fileOut.writeln(intelHexEncode(decoded, ihexAddr));
+                    ihexAddr += cast(ushort) decoded.length;
+                }
+                else
+                    fileOut.writeln(encodeData(encode, decoded, ouppercase));
             }
         }
         else if (wantEncode)
         {
-            // File prefix
-            switch (encode) with (EncodingType) {
-            case EncodingType.array_c:
-                fileOut.writeln("unsigned char data[] = {");
-                break;
-            case EncodingType.array_csharp:
-                fileOut.writeln("static readonly byte[] data = new byte[] {");
-                break;
-            case EncodingType.array_d:
-                fileOut.writeln("ubyte[] data = [");
-                break;
-            case EncodingType.uuencode:
-            case EncodingType.xxencode:
-                fileOut.writeln("begin 644 data");
-                break;
-            default:
-            }
-
             switch (encode) with (EncodingType) {
             case intelhex:
-                ushort addr = 0;
+                ushort addr;
                 foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
                 {
                     fileOut.writeln(intelHexEncode(chunk, addr));
@@ -348,26 +382,6 @@ void main(string[] args)
             default:
                 foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
                     fileOut.writeln(encodeData(encode, chunk, ouppercase));
-            }
-
-            // File suffix
-            switch (encode) with (EncodingType) {
-            case EncodingType.array_c:
-            case EncodingType.array_csharp:
-                fileOut.writeln("};");
-                break;
-            case EncodingType.array_d:
-                fileOut.writeln("];");
-                break;
-            case EncodingType.intelhex:
-                fileOut.writeln(intelHexEof());
-                break;
-            case EncodingType.uuencode:
-            case EncodingType.xxencode:
-                fileOut.writeln("`");
-                fileOut.writeln("end");
-                break;
-            default:
             }
         }
         else
@@ -383,19 +397,24 @@ void main(string[] args)
                     if (line.startsWith("begin ") || line == "end" || line == "`")
                         continue;
                 }
+                
                 if (isIntelHex)
                 {
                     ubyte[] data = intelHexDecode(line);
-                    if (data !is null)
-                        fileOut.rawWrite(data);
+                    if (data is null)
+                        continue;
+                    fileOut.rawWrite(data);
                 }
                 else
                     fileOut.rawWrite(decodeData(decode, line));
             }
         }
+        
+        if (wantEncode)
+            encodingSuffix(encode, fileOut);
     }
     catch (Exception ex)
     {
-        abort(6, ex);
+        abort(2, ex);
     }
 }
