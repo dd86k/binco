@@ -18,6 +18,7 @@ binco-test-*
 *.exe
 *.xz
 *.gz
+*.zip
 
 # Claude Code
 .claude/
