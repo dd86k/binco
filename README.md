@@ -11,8 +11,9 @@ Currently supports:
 - `base64`: Base64
 - `base64u`: Base64 URL without padding, RFC 4648 and 7515
 - `base64up`: Base64 URL with padding
-- `base91`: Base91
-- `intelhex`: Intel HEX (entry types `00` and `01` only)
+- `base91`: basE91
+- `intelhex`, `ihex`: Intel HEX (entry types `00` and `01` only)
+- `srecord`, `srec`: Motorola S-Record
 - `uuencode`: UUEncoding
 - `xxencode`: XXEncoding
 
