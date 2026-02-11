@@ -30,6 +30,7 @@ enum EncodingType
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
     base64up,       // Base64 URL with padding
+    base91,
     intelhex,
     uuencode,
     xxencode,
@@ -46,6 +47,7 @@ immutable string[] descriptions = [
     "Base64",
     "Base64 URL without padding, RFC 4648 and 7515",
     "Base64 URL with padding",
+    "basE91",
     "Intel HEX",
     "UUEncoding",
     "XXEncoding",
@@ -89,6 +91,7 @@ int suggestColumns(EncodingType encoding)
     case base64:
     case base64u:
     case base64up:
+    case base91:
         return 76;
     case intelhex:
         return 43;
@@ -113,6 +116,8 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case base64u:
     case base64up:
         return cols / 4 * 3;
+    case base91:
+        return cols * 13 / 16;
     case intelhex:
         return (cols - 11) / 2;
     case uuencode:
@@ -155,6 +160,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return Base64URLNoPadding.encode(data);
     case base64up:
         return Base64URL.encode(data);
+    case base91:
+        return base91Encode(data).dup;
     case intelhex:
         return intelHexEncode(data, 0).dup;
     case uuencode:
@@ -198,6 +205,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         return Base64URLNoPadding.decode(line);
     case base64up:
         return Base64URL.decode(line);
+    case base91:
+        return base91Decode(line);
     case intelhex:
         return intelHexDecode(line);
     case uuencode:
