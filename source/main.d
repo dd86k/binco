@@ -18,7 +18,6 @@ import std.traits : EnumMembers;
 //base32z       // Z-Base32
 //base36
 //base58
-//ascii85
 //base91
 //base1024      // https://github.com/shea256/emojicoding
 enum EncodingType
@@ -26,6 +25,7 @@ enum EncodingType
     array_c,
     array_csharp,
     array_d,
+    ascii85,
     base16,
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
@@ -41,6 +41,7 @@ immutable string[] descriptions = [
     "C array (encoding only)",
     "C# array (encoding only)",
     "D array (encoding only)",
+    "Ascii85 (Base85)",
     "Hexadecimal",
     "Base64",
     "Base64 URL without padding, RFC 4648 and 7515",
@@ -83,6 +84,7 @@ int suggestColumns(EncodingType encoding)
     case array_csharp:
     case array_d:
         return 12;
+    case ascii85:
     case base16:
     case base64:
     case base64u:
@@ -103,6 +105,8 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case array_csharp:
     case array_d:
         return cols;
+    case ascii85:
+        return cols / 5 * 4;
     case base16:
         return cols / 2;
     case base64:
@@ -141,6 +145,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
     case array_csharp:
     case array_d:
         return arrayEncode(data, uppercase);
+    case ascii85:
+        return ascii85Encode(data).dup;
     case base16:
         return base16Encode(data, uppercase).dup;
     case base64:
@@ -182,6 +188,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
     case array_csharp:
     case array_d:
         throw new Exception(text("Decoding not supported for ", encoding));
+    case ascii85:
+        return ascii85Decode(line);
     case base16:
         return base16Decode(line);
     case base64:
@@ -211,6 +219,9 @@ void encodingPrefix(EncodingType encoding, ref File file)
     case EncodingType.array_d:
         file.writeln("ubyte[] data = [");
         break;
+    case EncodingType.ascii85:
+        file.writeln("<~");
+        break;
     case EncodingType.uuencode:
     case EncodingType.xxencode:
         file.writeln("begin 644 data");
@@ -228,6 +239,9 @@ void encodingSuffix(EncodingType encoding, ref File file)
         break;
     case EncodingType.array_d:
         file.writeln("];");
+        break;
+    case EncodingType.ascii85:
+        file.writeln("~>");
         break;
     case EncodingType.intelhex:
         file.writeln(intelHexEof());
@@ -388,6 +402,7 @@ void main(string[] args)
         {
             bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
             bool isIntelHex = (decode == EncodingType.intelhex);
+            bool isAscii85 = (decode == EncodingType.ascii85);
             // TODO: Concern: .byLine grows a buffer until a line is met
             foreach (line; fileIn.byLine())
             {
@@ -401,6 +416,13 @@ void main(string[] args)
                 if (isIntelHex)
                 {
                     ubyte[] data = intelHexDecode(line);
+                    if (data is null)
+                        continue;
+                    fileOut.rawWrite(data);
+                }
+                else if (isAscii85)
+                {
+                    ubyte[] data = ascii85Decode(line);
                     if (data is null)
                         continue;
                     fileOut.rawWrite(data);
