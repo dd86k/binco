@@ -13,6 +13,9 @@ import std.getopt;
 import std.stdio;
 import std.traits : EnumMembers;
 
+enum Version   = "0.2.0";
+enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
+
 // Possible future encodings:
 //base32        // RFC 4648 Base32 §6 alphabet
 //base32h       // RFC 4648 Base32 §7 "extended hex" alphabet
