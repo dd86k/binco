@@ -8,6 +8,7 @@ module main;
 import binco.encoding;
 import core.stdc.stdlib : exit;
 import std.base64;
+import std.conv : text;
 import std.getopt;
 import std.stdio;
 import std.traits : EnumMembers;
@@ -61,8 +62,41 @@ string description(EncodingType encoding)
     return descriptions[i];
 }
 
-enum Version   = "0.1.0";
-enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
+EncodingType selectEncoding(string name)
+{
+    switch (name) {
+    case "array_c":
+        return EncodingType.array_c;
+    case "array_csharp":
+        return EncodingType.array_csharp;
+    case "array_d":
+        return EncodingType.array_d;
+    case "ascii85":
+        return EncodingType.ascii85;
+    case "base16":
+        return EncodingType.base16;
+    case "base64":
+        return EncodingType.base64;
+    case "base64u":
+        return EncodingType.base64u;
+    case "base64up":
+        return EncodingType.base64up;
+    case "base91":
+        return EncodingType.base91;
+    case "intelhex":
+    case "ihex":
+        return EncodingType.intelhex;
+    case "srecord":
+    case "srec":
+        return EncodingType.srecord;
+    case "uuencode":
+        return EncodingType.uuencode;
+    case "xxencode":
+        return EncodingType.xxencode;
+    default:
+        throw new Exception(text("Unknown encoding: ", name));
+    }
+}
 
 noreturn abort(string func = __FUNCTION__, A...)(int code, string fmt, A args)
 {
@@ -195,7 +229,6 @@ char[] arrayEncode(const(ubyte)[] data, bool uppercase)
 
 ubyte[] decodeData(EncodingType encoding, const(char)[] line)
 {
-    import std.conv : text;
     final switch (encoding) with (EncodingType) {
     case array_c:
     case array_csharp:
@@ -320,8 +353,12 @@ void main(string[] args)
         },
         "cols",     "Line length when encoding", &ocolumns,
         "upper",    "Use uppercase hex digits (base16)", &ouppercase,
-        "e|encode", "Select encoding mode and format", &encode,
-        "d|decode", "Select decoding mode and format", &decode,
+        "e|encode", "Select encoding mode and format", (string _, string val) {
+            encode = selectEncoding(val);
+        },
+        "d|decode", "Select decoding mode and format", (string _, string val) {
+            decode = selectEncoding(val);
+        },
         "i|input",  "File input (default: stdin)", &pathIn,
         "o|output", "File output (default: stdout)", &pathOut,
         config.bundling,
