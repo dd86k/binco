@@ -5,4 +5,5 @@ public import
 	binco.encoding.base16,
 	binco.encoding.base91,
 	binco.encoding.uuencode,
-	binco.encoding.intelhex;
+	binco.encoding.intelhex,
+	binco.encoding.srec;

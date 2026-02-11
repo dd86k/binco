@@ -32,6 +32,7 @@ enum EncodingType
     base64up,       // Base64 URL with padding
     base91,
     intelhex,
+    srecord,
     uuencode,
     xxencode,
 }
@@ -49,6 +50,7 @@ immutable string[] descriptions = [
     "Base64 URL with padding",
     "basE91",
     "Intel HEX",
+    "Motorola S-record",
     "UUEncoding",
     "XXEncoding",
 ];
@@ -93,6 +95,7 @@ int suggestColumns(EncodingType encoding)
     case base91:
         return 76;
     case intelhex:
+    case srecord:
         return 43;
     case uuencode:
     case xxencode:
@@ -115,10 +118,12 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case base64u:
     case base64up:
         return cols / 4 * 3;
-    case base91:
+    case base91: // base91 produces ~16 chars per 13 bytes on avg
         return cols * 13 / 16;
     case intelhex:
         return (cols - 11) / 2;
+    case srecord:
+        return (cols - 10) / 2;
     case uuencode:
     case xxencode:
         return (cols - 1) / 4 * 3;
@@ -163,6 +168,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return base91Encode(data).dup;
     case intelhex:
         return intelHexEncode(data, 0).dup;
+    case srecord:
+        return srecEncode(data, 0).dup;
     case uuencode:
         return uuEncode(data).dup;
     case xxencode:
@@ -208,6 +215,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         return base91Decode(line);
     case intelhex:
         return intelHexDecode(line);
+    case srecord:
+        return srecDecode(line);
     case uuencode:
         return uuDecode(line);
     case xxencode:
@@ -253,6 +262,9 @@ void encodingSuffix(EncodingType encoding, ref File file)
         break;
     case EncodingType.intelhex:
         file.writeln(intelHexEof());
+        break;
+    case EncodingType.srecord:
+        file.writeln(srecEof());
         break;
     case EncodingType.uuencode:
     case EncodingType.xxencode:
@@ -380,18 +392,23 @@ void main(string[] args)
         
         if (wantEncode && wantDecode) // re-encode
         {
-            // Re-encode loop with Intel HEX address tracking
+            // Re-encode loop with address tracking for Intel HEX / S-record
             ushort ihexAddr;
             foreach (line; fileIn.byLine())
             {
                 ubyte[] decoded = decodeData(decode, line);
-                // Intel HEX line can be of another type of 00
+                // Intel HEX / S-record lines can be non-data types
                 // In that case, disregard line (silently)
                 if (decoded is null)
                     continue;
                 if (encode == EncodingType.intelhex)
                 {
                     fileOut.writeln(intelHexEncode(decoded, ihexAddr));
+                    ihexAddr += cast(ushort) decoded.length;
+                }
+                else if (encode == EncodingType.srecord)
+                {
+                    fileOut.writeln(srecEncode(decoded, ihexAddr));
                     ihexAddr += cast(ushort) decoded.length;
                 }
                 else
@@ -409,6 +426,14 @@ void main(string[] args)
                     addr += cast(ushort) chunk.length;
                 }
                 break;
+            case srecord:
+                ushort saddr;
+                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+                {
+                    fileOut.writeln(srecEncode(chunk, saddr));
+                    saddr += cast(ushort) chunk.length;
+                }
+                break;
             default:
                 foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
                     fileOut.writeln(encodeData(encode, chunk, ouppercase));
@@ -418,6 +443,7 @@ void main(string[] args)
         {
             bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
             bool isIntelHex = (decode == EncodingType.intelhex);
+            bool isSrec = (decode == EncodingType.srecord);
             bool isAscii85 = (decode == EncodingType.ascii85);
             // TODO: Concern: .byLine grows a buffer until a line is met
             foreach (line; fileIn.byLine())
@@ -432,6 +458,13 @@ void main(string[] args)
                 if (isIntelHex)
                 {
                     ubyte[] data = intelHexDecode(line);
+                    if (data is null)
+                        continue;
+                    fileOut.rawWrite(data);
+                }
+                else if (isSrec)
+                {
+                    ubyte[] data = srecDecode(line);
                     if (data is null)
                         continue;
                     fileOut.rawWrite(data);
