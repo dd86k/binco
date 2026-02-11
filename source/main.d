@@ -167,22 +167,6 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     }
 }
 
-File fileOpen(string path, string mode)
-{
-    File file;
-    
-    try
-    {
-        file.open(path, mode);
-    }
-    catch (Exception ex)
-    {
-        abort(5, ex);
-    }
-    
-    return file;
-}
-
 char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
 {
     // TODO: Concern: .dup doesn't re-use gc buffer but creates a new one every time
@@ -428,110 +412,103 @@ void main(string[] args)
     if (ocolumns == int.init && wantEncode)
         ocolumns = suggestColumns(encode);
 
-    File fileIn  = pathIn  ? fileOpen(pathIn,  "rb") : stdin;
-    File fileOut = pathOut ? fileOpen(pathOut, "wb") : stdout;
+    File fileIn  = pathIn  ? File(pathIn,  "rb") : stdin;
+    File fileOut = pathOut ? File(pathOut, "wb") : stdout;
 
-    try
+    if (wantEncode && onoprefix == false)
+        encodingPrefix(encode, fileOut);
+    
+    if (wantEncode && wantDecode) // re-encode
     {
-        if (wantEncode && onoprefix == false)
-            encodingPrefix(encode, fileOut);
-        
-        if (wantEncode && wantDecode) // re-encode
+        // Re-encode loop with address tracking for Intel HEX / S-record
+        ushort ihexAddr;
+        foreach (line; fileIn.byLine())
         {
-            // Re-encode loop with address tracking for Intel HEX / S-record
-            ushort ihexAddr;
-            foreach (line; fileIn.byLine())
+            ubyte[] decoded = decodeData(decode, line);
+            // Intel HEX / S-record lines can be non-data types
+            // In that case, disregard line (silently)
+            if (decoded is null)
+                continue;
+            if (encode == EncodingType.intelhex)
             {
-                ubyte[] decoded = decodeData(decode, line);
-                // Intel HEX / S-record lines can be non-data types
-                // In that case, disregard line (silently)
-                if (decoded is null)
+                fileOut.writeln(intelHexEncode(decoded, ihexAddr));
+                ihexAddr += cast(ushort) decoded.length;
+            }
+            else if (encode == EncodingType.srecord)
+            {
+                fileOut.writeln(srecEncode(decoded, ihexAddr));
+                ihexAddr += cast(ushort) decoded.length;
+            }
+            else
+                fileOut.writeln(encodeData(encode, decoded, ouppercase));
+        }
+    }
+    else if (wantEncode)
+    {
+        switch (encode) with (EncodingType) {
+        case intelhex:
+            ushort addr;
+            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+            {
+                fileOut.writeln(intelHexEncode(chunk, addr));
+                addr += cast(ushort) chunk.length;
+            }
+            break;
+        case srecord:
+            ushort saddr;
+            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+            {
+                fileOut.writeln(srecEncode(chunk, saddr));
+                saddr += cast(ushort) chunk.length;
+            }
+            break;
+        default:
+            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+                fileOut.writeln(encodeData(encode, chunk, ouppercase));
+        }
+    }
+    else
+    {
+        bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
+        bool isIntelHex = (decode == EncodingType.intelhex);
+        bool isSrec = (decode == EncodingType.srecord);
+        bool isAscii85 = (decode == EncodingType.ascii85);
+        // TODO: Concern: .byLine grows a buffer until a line is met
+        foreach (line; fileIn.byLine())
+        {
+            if (isUUXX)
+            {
+                import std.algorithm : startsWith;
+                if (line.startsWith("begin ") || line == "end" || line == "`")
                     continue;
-                if (encode == EncodingType.intelhex)
-                {
-                    fileOut.writeln(intelHexEncode(decoded, ihexAddr));
-                    ihexAddr += cast(ushort) decoded.length;
-                }
-                else if (encode == EncodingType.srecord)
-                {
-                    fileOut.writeln(srecEncode(decoded, ihexAddr));
-                    ihexAddr += cast(ushort) decoded.length;
-                }
-                else
-                    fileOut.writeln(encodeData(encode, decoded, ouppercase));
             }
-        }
-        else if (wantEncode)
-        {
-            switch (encode) with (EncodingType) {
-            case intelhex:
-                ushort addr;
-                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
-                {
-                    fileOut.writeln(intelHexEncode(chunk, addr));
-                    addr += cast(ushort) chunk.length;
-                }
-                break;
-            case srecord:
-                ushort saddr;
-                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
-                {
-                    fileOut.writeln(srecEncode(chunk, saddr));
-                    saddr += cast(ushort) chunk.length;
-                }
-                break;
-            default:
-                foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
-                    fileOut.writeln(encodeData(encode, chunk, ouppercase));
-            }
-        }
-        else
-        {
-            bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
-            bool isIntelHex = (decode == EncodingType.intelhex);
-            bool isSrec = (decode == EncodingType.srecord);
-            bool isAscii85 = (decode == EncodingType.ascii85);
-            // TODO: Concern: .byLine grows a buffer until a line is met
-            foreach (line; fileIn.byLine())
+            
+            if (isIntelHex)
             {
-                if (isUUXX)
-                {
-                    import std.algorithm : startsWith;
-                    if (line.startsWith("begin ") || line == "end" || line == "`")
-                        continue;
-                }
-                
-                if (isIntelHex)
-                {
-                    ubyte[] data = intelHexDecode(line);
-                    if (data is null)
-                        continue;
-                    fileOut.rawWrite(data);
-                }
-                else if (isSrec)
-                {
-                    ubyte[] data = srecDecode(line);
-                    if (data is null)
-                        continue;
-                    fileOut.rawWrite(data);
-                }
-                else if (isAscii85)
-                {
-                    ubyte[] data = ascii85Decode(line);
-                    if (data is null)
-                        continue;
-                    fileOut.rawWrite(data);
-                }
-                else
-                    fileOut.rawWrite(decodeData(decode, line));
+                ubyte[] data = intelHexDecode(line);
+                if (data is null)
+                    continue;
+                fileOut.rawWrite(data);
             }
+            else if (isSrec)
+            {
+                ubyte[] data = srecDecode(line);
+                if (data is null)
+                    continue;
+                fileOut.rawWrite(data);
+            }
+            else if (isAscii85)
+            {
+                ubyte[] data = ascii85Decode(line);
+                if (data is null)
+                    continue;
+                fileOut.rawWrite(data);
+            }
+            else
+                fileOut.rawWrite(decodeData(decode, line));
         }
-        
-        if (wantEncode && onosuffix == false)
-            encodingSuffix(encode, fileOut);
     }
-    catch (Exception ex)
-    {
-        abort(2, ex);
-    }
+    
+    if (wantEncode && onosuffix == false)
+        encodingSuffix(encode, fileOut);
 }
