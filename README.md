@@ -28,7 +28,7 @@ By default, stdin and stdout streams are used for input and output.
 To specify a file input, use `-i|--input`. For file output, use `-o|--output`.
 
 Encode file and show result to stdout:
-```sh
+```text
 $ binco -e base64 -i dub.sdl
 bmFtZSAiYmluY28iCmRlc2NyaXB0aW9uICJCaW5hcnkgRW5jb2Rlci9EZWNvZGVyIgphdXRob3Jz
 ICJkZDg2ayA8ZGRAZGF4Lm1vZT4iCmNvcHlyaWdodCAiQ29weXJpZ2h0IMKpIDIwMjMsIGRkODZr
@@ -37,24 +37,38 @@ ZXhlY3V0YWJsZSIKCnN0cmluZ0ltcG9ydFBhdGhzICIuIg==
 ```
 
 Encode stream to base64:
-```sh
+```text
 $ echo 123 | binco -e base64
 MTIzIA0K
 ```
 
 Encode file as a C array:
-```sh
+```text
 $ binco -i bin -e array_c
+unsigned char data[] = {
+    0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21
+    0x0a
+};
 ```
 
-Decode file to another file:
-```sh
-$ binco -i example.txt -d base64 -o example.exe
+Decode Intel HEX to S-Record on-screen:
+```text
+$ binco -d ihex -i bin -e srec
+S11300005361646C792C206A7573742061206D656A
+S1130010616E696E676C657373206578616D706C71
+S11300206520696E20746578742C20736F72727900
+S1050030210A9F
+S9030000FC
+```
+
+Decode base64-encoded file to another file:
+```text
+$ binco -d base64 -i example.txt -o example.exe
 ```
 
 Transcode a file to another encoding:
-```sh
-$ binco -i a.txt -d base16 -e base64 -o b.txt
+```text
+$ binco -d base16 -i a.txt -e base64 -o b.txt
 ```
 
 # Limitations

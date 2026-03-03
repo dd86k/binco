@@ -190,4 +190,15 @@ unittest
         }
         assert(base91Decode(withSpaces) == data);
     }
+    
+    assert(base91Encode(cast(ubyte[])(
+        `Man is distinguished, not only by his reason, but by this singular passion from `~
+        `other animals, which is a lust of the mind, that by a perseverance of delight in `~
+        `the continued and indefatigable generation of knowledge, exceeds the short `~
+        `vehemence of any carnal pleasure.`)) ==
+        "8D$J`/wC4!c.hQ;mT8,<p/&Y/H@$]xlL3oDg<W.0$FW6GFMo_D8=8=}AMf][|LfVd/<P1o/1Z2(.I+LR6t"~
+        "QQ0o1a/2/WtN3$3t[x&k)zgZ5=p;LRe.{B[pqa(I.WRT%yxtB92oZB,2,Wzv;Rr#N.cju\"JFXiZBMf<WM"~
+        "C&$@+e95p)z01_*UCxT0t88Km=UQJ;WH[#F]4pE>i3o(g7=$e7R2u>xjLxoefB.6Yy#~uex8jEU_1e,MIr"~
+        "%!&=EHnLBn2h>M+;Rl3qxcL5)Wfc,HT$F]4pEsofrFK;W&eh#=#},|iKB,2,W]@fVlx,a<m;i=CY<=Hb%}"~
+        "+},F");
 }
