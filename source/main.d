@@ -379,6 +379,20 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
     }
 }
 
+bool shouldSkipLine(EncodingType encoding, const(char)[] line)
+{
+    import std.algorithm : startsWith;
+    switch (encoding) with (EncodingType) {
+    case uuencode:
+    case xxencode:
+        return line.startsWith("begin ") || line == "end" || line == "`";
+    case ascii85:
+        return line == "<~" || line == "~>";
+    default:
+        return false;
+    }
+}
+
 void encodingPrefix(EncodingType encoding, ref File file)
 {
     switch (encoding) with (EncodingType) {
@@ -575,10 +589,13 @@ void main(string[] args)
     {
         // Re-encode loop with address tracking for Intel HEX / S-record
         ushort ihexAddr;
-        ubyte[] decodeBuf = new ubyte[4096];
-        char[] encodeBuf = new char[8192];
+        int decChunkSize = columnsToChunkSize(decode, suggestColumns(decode));
+        ubyte[] decodeBuf = new ubyte[decChunkSize];
+        char[] encodeBuf = new char[maxEncodedSize(encode, decChunkSize)];
         foreach (line; fileIn.byLine())
         {
+            if (shouldSkipLine(decode, line))
+                continue;
             if (decodeBuf.length < line.length)
                 decodeBuf = new ubyte[line.length];
             ubyte[] decoded = decodeData(decode, line, decodeBuf);
@@ -631,46 +648,19 @@ void main(string[] args)
     }
     else // decode only
     {
-        bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
-        bool isIntelHex = (decode == EncodingType.intelhex);
-        bool isSrec = (decode == EncodingType.srecord);
-        bool isAscii85 = (decode == EncodingType.ascii85);
         ubyte[] decodeBuf = new ubyte[4096];
         foreach (line; fileIn.byLine())
         {
-            if (isUUXX)
-            {
-                import std.algorithm : startsWith;
-                if (line.startsWith("begin ") || line == "end" || line == "`")
-                    continue;
-            }
+            if (shouldSkipLine(decode, line))
+                continue;
 
             if (decodeBuf.length < line.length)
                 decodeBuf.length = line.length;
 
-            if (isIntelHex)
-            {
-                ubyte[] data = intelHexDecode(line, decodeBuf);
-                if (data is null)
-                    continue;
-                fileOut.rawWrite(data);
-            }
-            else if (isSrec)
-            {
-                ubyte[] data = srecDecode(line, decodeBuf);
-                if (data is null)
-                    continue;
-                fileOut.rawWrite(data);
-            }
-            else if (isAscii85)
-            {
-                ubyte[] data = ascii85Decode(line, decodeBuf);
-                if (data is null)
-                    continue;
-                fileOut.rawWrite(data);
-            }
-            else
-                fileOut.rawWrite(decodeData(decode, line, decodeBuf));
+            ubyte[] data = decodeData(decode, line, decodeBuf);
+            if (data is null)
+                continue;
+            fileOut.rawWrite(data);
         }
     }
     
