@@ -533,7 +533,7 @@ void main(string[] args)
     );
     catch (Exception ex)
     {
-        abort(1, ex);
+        abort(1, ex.msg);
     }
         
     if (res.helpWanted || noArgs)
