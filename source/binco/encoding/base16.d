@@ -1,4 +1,4 @@
-/// Command-line interface and application.
+/// Base16 (hexadecimal) implementation.
 ///
 /// Authors: dd86k <dd@dax.moe>
 /// Copyright: dd86k <dd@dax.moe>

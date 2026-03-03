@@ -32,6 +32,7 @@ enum EncodingType
     array_csharp,
     array_d,
     ascii85,
+    base2,
     base16,
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
@@ -66,6 +67,12 @@ immutable Selection[ENCODINGS] selection = [
         EncodingType.ascii85,
         [ EncodingType.ascii85.stringof ],
         "Ascii85 (Base85)"
+    },
+    {
+        EncodingType.base2,
+        // NOTE: "binary" might be confused as raw input/output
+        [ EncodingType.base2.stringof ],
+        "Binary (Base2)"
     },
     {
         EncodingType.base16,
@@ -155,6 +162,8 @@ int suggestColumns(EncodingType encoding)
     case base64up:
     case base91:
         return 76;
+    case base2:
+        return 72;
     case intelhex:
     case srecord:
         return 43;
@@ -173,6 +182,8 @@ int columnsToChunkSize(EncodingType encoding, int cols)
         return cols;
     case ascii85:
         return cols / 5 * 4;
+    case base2:
+        return cols / 8;
     case base16:
         return cols / 2;
     case base64:
@@ -202,6 +213,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return arrayEncode(data, uppercase);
     case ascii85:
         return ascii85Encode(data).dup;
+    case base2:
+        return base2Encode(data).dup;
     case base16:
         return base16Encode(data, uppercase).dup;
     case base64:
@@ -248,6 +261,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         throw new Exception(text("Decoding not supported for ", encoding));
     case ascii85:
         return ascii85Decode(line);
+    case base2:
+        return base2Decode(line);
     case base16:
         return base16Decode(line);
     case base64:
