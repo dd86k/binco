@@ -187,19 +187,19 @@ unittest
 
     // Round-trip: single byte
     {
-        auto data = cast(const(ubyte)[])"A";
+        const(ubyte)[] data = cast(const(ubyte)[])"A";
         assert(ascii85Decode(ascii85Encode(data)) == data);
     }
 
     // Round-trip: two bytes
     {
-        auto data = cast(const(ubyte)[])"AB";
+        const(ubyte)[] data = cast(const(ubyte)[])"AB";
         assert(ascii85Decode(ascii85Encode(data)) == data);
     }
 
     // Round-trip: three bytes
     {
-        auto data = cast(const(ubyte)[])"ABC";
+        const(ubyte)[] data = cast(const(ubyte)[])"ABC";
         assert(ascii85Decode(ascii85Encode(data)) == data);
     }
 

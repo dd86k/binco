@@ -13,6 +13,8 @@ import std.getopt;
 import std.stdio;
 import std.traits : EnumMembers;
 
+private:
+
 enum Version   = "0.3.0";
 enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
 

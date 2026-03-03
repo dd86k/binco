@@ -160,7 +160,7 @@ unittest
 
     // Known test vector: "Hello" at address 0
     {
-        auto encoded = srecEncode(cast(const(ubyte)[])"Hello", 0);
+        char[] encoded = srecEncode(cast(const(ubyte)[])"Hello", 0);
         // count = 5+3 = 08, addr = 0000, data = 48656C6C6F
         // sum = 08+00+00+48+65+6C+6C+6F = 1FC -> FC, checksum = ~FC = 03
         assert(encoded == "S108000048656C6C6F03", "Got: " ~ encoded);
@@ -168,7 +168,7 @@ unittest
 
     // Single byte at address 0
     {
-        auto encoded = srecEncode([cast(ubyte) 0xFF], 0);
+        char[] encoded = srecEncode([cast(ubyte) 0xFF], 0);
         // count = 1+3 = 04, addr = 0000, data = FF
         // sum = 04+00+00+FF = 103 -> 03, checksum = ~03 = FC
         assert(encoded == "S1040000FFFC", "Got: " ~ encoded);
@@ -176,7 +176,7 @@ unittest
 
     // Data at non-zero address
     {
-        auto encoded = srecEncode([cast(ubyte) 0xAB], 0x1234);
+        char[] encoded = srecEncode([cast(ubyte) 0xAB], 0x1234);
         // count = 04, addr = 1234, data = AB
         // sum = 04+12+34+AB = F5, checksum = ~F5 = 0A
         assert(encoded == "S1041234AB0A", "Got: " ~ encoded);
@@ -192,13 +192,13 @@ unittest
 
     // Decode "Hello"
     {
-        auto decoded = srecDecode("S108000048656C6C6F03");
+        ubyte[] decoded = srecDecode("S108000048656C6C6F03");
         assert(decoded == cast(ubyte[])"Hello");
     }
 
     // Decode single byte
     {
-        auto decoded = srecDecode("S1040000FFFC");
+        ubyte[] decoded = srecDecode("S1040000FFFC");
         assert(decoded == [cast(ubyte) 0xFF]);
     }
 
@@ -212,7 +212,7 @@ unittest
     {
         // S2, count=06 (3 addr + 2 data + 1 checksum), addr=123456, data=AABB
         // sum = 06+12+34+56+AA+BB = 207 -> 07, checksum = ~07 = F8
-        auto decoded = srecDecode("S206123456AABBF8");
+        ubyte[] decoded = srecDecode("S206123456AABBF8");
         assert(decoded == [cast(ubyte) 0xAA, cast(ubyte) 0xBB], "S2 decode failed");
     }
 
@@ -220,7 +220,7 @@ unittest
     {
         // S3, count=07 (4 addr + 2 data + 1 checksum), addr=12345678, data=AABB
         // sum = 07+12+34+56+78+AA+BB = 280 -> 80, checksum = ~80 = 7F
-        auto decoded = srecDecode("S30712345678AABB7F");
+        ubyte[] decoded = srecDecode("S30712345678AABB7F");
         assert(decoded == [cast(ubyte) 0xAA, cast(ubyte) 0xBB], "S3 decode failed");
     }
 
@@ -228,17 +228,17 @@ unittest
 
     // Round-trip: text data
     {
-        auto data = cast(const(ubyte)[])"Hello, World!";
-        auto encoded = srecEncode(data, 0);
-        auto decoded = srecDecode(encoded);
+        const(ubyte)[] data = cast(const(ubyte)[])"Hello, World!";
+        char[] encoded = srecEncode(data, 0);
+        ubyte[] decoded = srecDecode(encoded);
         assert(decoded == data);
     }
 
     // Round-trip: binary data with edge values
     {
-        immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
-        auto encoded = srecEncode(data, 0);
-        auto decoded = srecDecode(encoded);
+        static immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
+        char[] encoded = srecEncode(data, 0);
+        ubyte[] decoded = srecDecode(encoded);
         assert(decoded == data);
     }
 
@@ -247,8 +247,8 @@ unittest
         ubyte[16] data;
         foreach (i, ref b; data)
             b = cast(ubyte)(i * 17 + 5);
-        auto encoded = srecEncode(data[], 0x0100);
-        auto decoded = srecDecode(encoded);
+        char[] encoded = srecEncode(data[], 0x0100);
+        ubyte[] decoded = srecDecode(encoded);
         assert(decoded == data[]);
     }
 
@@ -260,7 +260,7 @@ unittest
     {
         try
         {
-            srecDecode("108000048656C6C6F03");
+            cast(void)srecDecode("108000048656C6C6F03");
             assert(false);
         }
         catch (Exception) {}
@@ -270,7 +270,7 @@ unittest
     {
         try
         {
-            srecDecode("S108000048656C6C6FFF");
+            cast(void)srecDecode("S108000048656C6C6FFF");
             assert(false);
         }
         catch (Exception) {}
@@ -280,7 +280,7 @@ unittest
     {
         try
         {
-            srecDecode("S104");
+            cast(void)srecDecode("S104");
             assert(false);
         }
         catch (Exception) {}
@@ -291,7 +291,7 @@ unittest
 
     // Lowercase hex decode
     {
-        auto decoded = srecDecode("S108000048656c6c6f03");
+        ubyte[] decoded = srecDecode("S108000048656c6c6f03");
         assert(decoded == cast(ubyte[])"Hello");
     }
 }

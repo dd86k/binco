@@ -137,27 +137,27 @@ unittest
 
     // Round-trip: "Hello World"
     {
-        auto data = cast(const(ubyte)[]) "Hello World";
-        auto encoded = base91Encode(data);
+        const(ubyte)[] data = cast(const(ubyte)[]) "Hello World";
+        char[] encoded = base91Encode(data);
         assert(encoded.length > 0);
         assert(base91Decode(encoded) == data);
     }
 
     // Round-trip: single byte
     {
-        auto data = cast(const(ubyte)[]) "A";
+        const(ubyte)[] data = cast(const(ubyte)[]) "A";
         assert(base91Decode(base91Encode(data)) == data);
     }
 
     // Round-trip: two bytes
     {
-        auto data = cast(const(ubyte)[]) "AB";
+        const(ubyte)[] data = cast(const(ubyte)[]) "AB";
         assert(base91Decode(base91Encode(data)) == data);
     }
 
     // Round-trip: three bytes
     {
-        auto data = cast(const(ubyte)[]) "ABC";
+        const(ubyte)[] data = cast(const(ubyte)[]) "ABC";
         assert(base91Decode(base91Encode(data)) == data);
     }
 
@@ -188,15 +188,15 @@ unittest
         ubyte[100] data;
         foreach (i, ref b; data)
             b = cast(ubyte)(i * 13 + 5);
-        auto encoded = base91Encode(data[]);
+        char[] encoded = base91Encode(data[]);
         // basE91 should produce fewer characters than base64 (which would be 136 chars)
         assert(encoded.length < 136);
     }
 
     // Whitespace/invalid characters ignored during decoding
     {
-        auto data = cast(const(ubyte)[]) "test";
-        auto encoded = base91Encode(data);
+        const(ubyte)[] data = cast(const(ubyte)[]) "test";
+        char[] encoded = base91Encode(data);
         // Insert whitespace into encoded string
         char[] withSpaces;
         foreach (i, c; encoded)

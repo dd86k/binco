@@ -131,19 +131,19 @@ unittest
 
     // Known test vector: "Hello" at address 0
     {
-        auto encoded = intelHexEncode(cast(const(ubyte)[])"Hello", 0);
+        char[] encoded = intelHexEncode(cast(const(ubyte)[])"Hello", 0);
         assert(encoded == ":0500000048656C6C6F07", "Got: " ~ encoded);
     }
 
     // Single byte at address 0
     {
-        auto encoded = intelHexEncode([cast(ubyte) 0xFF], 0);
+        char[] encoded = intelHexEncode([cast(ubyte) 0xFF], 0);
         assert(encoded == ":01000000FF00");
     }
 
     // Data at non-zero address
     {
-        auto encoded = intelHexEncode([cast(ubyte) 0xAB], 0x1234);
+        char[] encoded = intelHexEncode([cast(ubyte) 0xAB], 0x1234);
         // count=01, addr=1234, type=00, data=AB
         // checksum = ~(01+12+34+00+AB)+1 = ~F2+1 = 0E
         assert(encoded == ":01123400AB0E", "Got: " ~ encoded);
@@ -159,13 +159,13 @@ unittest
 
     // Decode "Hello"
     {
-        auto decoded = intelHexDecode(":0500000048656C6C6F07");
+        ubyte[] decoded = intelHexDecode(":0500000048656C6C6F07");
         assert(decoded == cast(ubyte[])"Hello");
     }
 
     // Decode single byte
     {
-        auto decoded = intelHexDecode(":01000000FF00");
+        ubyte[] decoded = intelHexDecode(":01000000FF00");
         assert(decoded == [cast(ubyte) 0xFF]);
     }
 
@@ -176,17 +176,17 @@ unittest
 
     // Round-trip: text data
     {
-        auto data = cast(const(ubyte)[])"Hello, World!";
-        auto encoded = intelHexEncode(data, 0);
-        auto decoded = intelHexDecode(encoded);
+        const(ubyte)[] data = cast(const(ubyte)[])"Hello, World!";
+        char[] encoded = intelHexEncode(data, 0);
+        ubyte[] decoded = intelHexDecode(encoded);
         assert(decoded == data);
     }
 
     // Round-trip: binary data with edge values
     {
         immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
-        auto encoded = intelHexEncode(data, 0);
-        auto decoded = intelHexDecode(encoded);
+        char[] encoded = intelHexEncode(data, 0);
+        ubyte[] decoded = intelHexDecode(encoded);
         assert(decoded == data);
     }
 
@@ -195,8 +195,8 @@ unittest
         ubyte[16] data;
         foreach (i, ref b; data)
             b = cast(ubyte)(i * 17 + 5);
-        auto encoded = intelHexEncode(data[], 0x0100);
-        auto decoded = intelHexDecode(encoded);
+        char[] encoded = intelHexEncode(data[], 0x0100);
+        ubyte[] decoded = intelHexDecode(encoded);
         assert(decoded == data[]);
     }
 
@@ -208,7 +208,7 @@ unittest
     {
         try
         {
-            intelHexDecode("0500000048656C6C6F3C");
+            cast(void)intelHexDecode("0500000048656C6C6F3C");
             assert(false);
         }
         catch (Exception) {}
@@ -218,7 +218,7 @@ unittest
     {
         try
         {
-            intelHexDecode(":0500000048656C6C6FFF");
+            cast(void)intelHexDecode(":0500000048656C6C6FFF");
             assert(false);
         }
         catch (Exception) {}
@@ -228,7 +228,7 @@ unittest
     {
         try
         {
-            intelHexDecode(":0100");
+            cast(void)intelHexDecode(":0100");
             assert(false);
         }
         catch (Exception) {}
@@ -239,7 +239,7 @@ unittest
 
     // Lowercase hex decode
     {
-        auto decoded = intelHexDecode(":0500000048656c6c6f07");
+        ubyte[] decoded = intelHexDecode(":0500000048656c6c6f07");
         assert(decoded == cast(ubyte[])"Hello");
     }
 }

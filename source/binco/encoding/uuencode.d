@@ -121,33 +121,33 @@ unittest
     // Known test vector: "Cat" in UUEncoding
     // "Cat" = [0x43, 0x61, 0x74]
     {
-        auto encoded = uuEncode(cast(const(ubyte)[])"Cat");
+        char[] encoded = uuEncode(cast(const(ubyte)[])"Cat");
         assert(encoded.length == 5); // 1 length + 4 encoded
-        auto decoded = uuDecode(encoded);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == cast(ubyte[])"Cat");
     }
 
     // Round-trip: "Hello"
     {
-        auto data = cast(const(ubyte)[])"Hello";
-        auto encoded = uuEncode(data);
-        auto decoded = uuDecode(encoded);
+        const(ubyte)[] data = cast(const(ubyte)[])"Hello";
+        char[] encoded = uuEncode(data);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == data);
     }
 
     // Round-trip: single byte (partial group of 1)
     {
-        auto data = cast(const(ubyte)[])"A";
-        auto encoded = uuEncode(data);
-        auto decoded = uuDecode(encoded);
+        const(ubyte)[] data = cast(const(ubyte)[])"A";
+        char[] encoded = uuEncode(data);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == data);
     }
 
     // Round-trip: two bytes (partial group of 2)
     {
-        auto data = cast(const(ubyte)[])"AB";
-        auto encoded = uuEncode(data);
-        auto decoded = uuDecode(encoded);
+        const(ubyte)[] data = cast(const(ubyte)[])"AB";
+        char[] encoded = uuEncode(data);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == data);
     }
 
@@ -158,8 +158,8 @@ unittest
     // Binary data round-trip
     {
         immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
-        auto encoded = uuEncode(data);
-        auto decoded = uuDecode(encoded);
+        char[] encoded = uuEncode(data);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == data);
     }
 
@@ -167,25 +167,25 @@ unittest
 
     // Round-trip: "Hello" with XX
     {
-        auto data = cast(const(ubyte)[])"Hello";
-        auto encoded = uuEncode(data, true);
-        auto decoded = uuDecode(encoded, true);
+        const(ubyte)[] data = cast(const(ubyte)[])"Hello";
+        char[] encoded = uuEncode(data, true);
+        ubyte[] decoded = uuDecode(encoded, true);
         assert(decoded == data);
     }
 
     // XX: single byte
     {
-        auto data = cast(const(ubyte)[])"X";
-        auto encoded = uuEncode(data, true);
-        auto decoded = uuDecode(encoded, true);
+        const(ubyte)[] data = cast(const(ubyte)[])"X";
+        char[] encoded = uuEncode(data, true);
+        ubyte[] decoded = uuDecode(encoded, true);
         assert(decoded == data);
     }
 
     // XX: two bytes
     {
-        auto data = cast(const(ubyte)[])"XY";
-        auto encoded = uuEncode(data, true);
-        auto decoded = uuDecode(encoded, true);
+        const(ubyte)[] data = cast(const(ubyte)[])"XY";
+        char[] encoded = uuEncode(data, true);
+        ubyte[] decoded = uuDecode(encoded, true);
         assert(decoded == data);
     }
 
@@ -196,16 +196,16 @@ unittest
     // XX: binary data
     {
         immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
-        auto encoded = uuEncode(data, true);
-        auto decoded = uuDecode(encoded, true);
+        char[] encoded = uuEncode(data, true);
+        ubyte[] decoded = uuDecode(encoded, true);
         assert(decoded == data);
     }
 
     // UU and XX produce different output for same input
     {
-        auto data = cast(const(ubyte)[])"Test";
-        auto uu = uuEncode(data);
-        auto xx = uuEncode(data, true);
+        const(ubyte)[] data = cast(const(ubyte)[])"Test";
+        char[] uu = uuEncode(data);
+        char[] xx = uuEncode(data, true);
         assert(uu != xx);
     }
 
@@ -214,20 +214,20 @@ unittest
         ubyte[45] data;
         foreach (i, ref b; data)
             b = cast(ubyte)(i * 7 + 3);
-        auto encoded = uuEncode(data[]);
-        auto decoded = uuDecode(encoded);
+        char[] encoded = uuEncode(data[]);
+        ubyte[] decoded = uuDecode(encoded);
         assert(decoded == data[]);
 
         // Same for XX
-        auto xxEncoded = uuEncode(data[], true);
-        auto xxDecoded = uuDecode(xxEncoded, true);
+        char[] xxEncoded = uuEncode(data[], true);
+        ubyte[] xxDecoded = uuDecode(xxEncoded, true);
         assert(xxDecoded == data[]);
     }
     
     // uuEncode cannot handle multilines
     // for now, slice into 45 byte chunks
     {
-        auto input = cast(const(ubyte)[])(
+        const(ubyte)[] input = cast(const(ubyte)[])(
             `Man is distinguished, not only by his reason, but by this singular passion from `~
             `other animals, which is a lust of the mind, that by a perseverance of delight in `~
             `the continued and indefatigable generation of knowledge, exceeds the short `~

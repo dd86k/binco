@@ -30,3 +30,4 @@ dub test           # Run unittests
 - Build system: **DUB** (configured via `dub.sdl`)
 - Uses Phobos standard library (`std.base64`, `std.getopt`, `std.stdio`)
 - Module paths follow directory structure: `source/binco/encoding/base16.d` → `binco.encoding.base16`
+- Do not use the `auto` keyword

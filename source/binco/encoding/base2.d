@@ -85,12 +85,12 @@ unittest
 
     // Partial data (not a multiple of 8) should throw
     bool threw;
-    try base2Decode("0100");
+    try cast(void)base2Decode("0100");
     catch (Exception) threw = true;
     assert(threw, "Expected exception for partial input");
 
     threw = false;
-    try base2Decode("010000011"); // 9 bits
+    try cast(void)base2Decode("010000011"); // 9 bits
     catch (Exception) threw = true;
     assert(threw, "Expected exception for 9-bit input");
 }
