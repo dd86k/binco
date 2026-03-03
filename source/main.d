@@ -22,8 +22,10 @@ enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
 //base32z       // Z-Base32
 //base36
 //base58
-//base91
 //base1024      // https://github.com/shea256/emojicoding
+//base2048      // https://github.com/qntm/base2048
+//base32768     // https://github.com/qntm/base32768
+//base65536     // https://github.com/qntm/base65536
 enum EncodingType
 {
     array_c,
@@ -43,62 +45,84 @@ enum EncodingType
 enum ENCODINGS  = EnumMembers!EncodingType.length;
 enum NoEncoding = cast(EncodingType)-1;
 
-immutable string[] descriptions = [
-    "C array (encoding only)",
-    "C# array (encoding only)",
-    "D array (encoding only)",
-    "Ascii85 (Base85)",
-    "Hexadecimal",
-    "Base64",
-    "Base64 URL without padding, RFC 4648 and 7515",
-    "Base64 URL with padding",
-    "basE91",
-    "Intel HEX",
-    "Motorola S-record",
-    "UUEncoding",
-    "XXEncoding",
+struct Selection { EncodingType encoding; string[] names; string description; }
+immutable Selection[ENCODINGS] selection = [
+    {
+        EncodingType.array_c,
+        [ EncodingType.array_c.stringof ],
+        "C array (encoding only)"
+    },
+    {
+        EncodingType.array_csharp,
+        [ EncodingType.array_csharp.stringof ],
+        "C# array (encoding only)"
+    },
+    {
+        EncodingType.array_d,
+        [ EncodingType.array_d.stringof ],
+        "D array (encoding only)"
+    },
+    {
+        EncodingType.ascii85,
+        [ EncodingType.ascii85.stringof ],
+        "Ascii85 (Base85)"
+    },
+    {
+        EncodingType.base16,
+        [ EncodingType.base16.stringof ],
+        "Hexadecimal (Base16)"
+    },
+    {
+        EncodingType.base64,
+        [ EncodingType.base64.stringof ],
+        "Base64"
+    },
+    {
+        EncodingType.base64u,
+        [ EncodingType.base64u.stringof ],
+        "Base64 URL without padding, RFC 4648 and 7515"
+    },
+    {
+        EncodingType.base64up,
+        [ EncodingType.base64up.stringof ],
+        "Base64 URL with padding"
+    },
+    {
+        EncodingType.base91,
+        [ EncodingType.base91.stringof ],
+        "basE91"
+    },
+    {
+        EncodingType.intelhex,
+        [ EncodingType.intelhex.stringof, "ihex" ],
+        "Intel HEX"
+    },
+    {
+        EncodingType.srecord,
+        [ EncodingType.srecord.stringof, "srec" ],
+        "Motorola S-record"
+    },
+    {
+        EncodingType.uuencode,
+        [ EncodingType.uuencode.stringof ],
+        "UUEncoding"
+    },
+    {
+        EncodingType.xxencode,
+        [ EncodingType.xxencode.stringof ],
+        "XXEncoding"
+    },
 ];
-static assert(descriptions.length == ENCODINGS, "Missing descriptions");
-string description(EncodingType encoding)
-{
-    size_t i = cast(size_t)encoding;
-    return descriptions[i];
-}
 
 EncodingType selectEncoding(string name)
 {
-    switch (name) {
-    case "array_c":
-        return EncodingType.array_c;
-    case "array_csharp":
-        return EncodingType.array_csharp;
-    case "array_d":
-        return EncodingType.array_d;
-    case "ascii85":
-        return EncodingType.ascii85;
-    case "base16":
-        return EncodingType.base16;
-    case "base64":
-        return EncodingType.base64;
-    case "base64u":
-        return EncodingType.base64u;
-    case "base64up":
-        return EncodingType.base64up;
-    case "base91":
-        return EncodingType.base91;
-    case "intelhex":
-    case "ihex":
-        return EncodingType.intelhex;
-    case "srecord":
-    case "srec":
-        return EncodingType.srecord;
-    case "uuencode":
-        return EncodingType.uuencode;
-    case "xxencode":
-        return EncodingType.xxencode;
-    default:
-        throw new Exception(text("Unknown encoding: ", name));
+    foreach (selected; selection)
+    {
+        foreach (ename; selected.names)
+            if (ename == name)
+                return selected.encoding;
     }
+    throw new Exception(text("Unknown encoding: ", name));
 }
 
 noreturn abort(string func = __FUNCTION__, A...)(int code, string fmt, A args)
@@ -170,6 +194,7 @@ int columnsToChunkSize(EncodingType encoding, int cols)
 char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
 {
     // TODO: Concern: .dup doesn't re-use gc buffer but creates a new one every time
+    //       Caller could provide buffer and callee could resize it if necessary
     final switch (encoding) with (EncodingType) {
     case array_c:
     case array_csharp:
@@ -313,8 +338,8 @@ immutable string page_license = import("LICENSE");
 
 void versionline(string field, string value)
 {
-    enum PADDING = -12;
-    writefln("%*s%s", PADDING, field, value);
+    enum PADDING = -11;
+    writefln("%*s %s", PADDING, field, value);
 }
 
 void main(string[] args)
@@ -334,7 +359,7 @@ void main(string[] args)
     // TODO: EncodingType selectEncoding(string) for aliases
     GetoptResult res = void;
     try res = getopt(args, config.caseSensitive,
-        "tmp000",   "", { // until easter egg gets a better name
+        "dna",      "", {
             writeln(page_secret);
             exit(0);
         },
@@ -353,8 +378,26 @@ void main(string[] args)
         config.bundling,
         "S|no-suffix", "If set, do not print suffix", &onosuffix,
         "list",     "List available formats", {
-            foreach (member; EnumMembers!EncodingType)
-                writeln(member, "\t: ", description(member));
+            foreach (selected; selection)
+            {
+                // print names/aliases
+                enum int BASE = 20;
+                int printed;
+                foreach (i, ename; selected.names)
+                {
+                    if (i)
+                    {
+                        static immutable string sep = ", ";
+                        write(sep);
+                        printed += sep.length;
+                    }
+                    write(ename);
+                    printed += ename.length;
+                }
+                
+                // print spacer and description
+                writefln("%*s : %s", BASE - printed, "", selected.description);
+            }
             exit(0);
         },
         "version",  "Show software version page", {
@@ -467,7 +510,7 @@ void main(string[] args)
                 fileOut.writeln(encodeData(encode, chunk, ouppercase));
         }
     }
-    else
+    else // decode only
     {
         bool isUUXX = (decode == EncodingType.uuencode || decode == EncodingType.xxencode);
         bool isIntelHex = (decode == EncodingType.intelhex);
