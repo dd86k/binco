@@ -13,25 +13,24 @@ module binco.encoding.srec;
 private immutable char[16] hexDigitsUpper = "0123456789ABCDEF";
 
 /// Encode a chunk of data as an S1 (16-bit address) record.
-char[] srecEncode(const(ubyte)[] data, ushort address)
+/// Buffer overload: encode into caller-provided buffer, return filled slice.
+char[] srecEncode(const(ubyte)[] data, ushort address, char[] buf)
 {
     if (data.length == 0)
         return null;
     if (data.length > 255)
         throw new Exception("S-record data too long (max 255 bytes)");
 
-    // S1 LL AAAA DD...DD CC
-    // 2 + 2 + 4 + data.length*2 + 2 = 10 + data.length*2
-    char[] result = new char[10 + data.length * 2];
+    size_t len = 10 + data.length * 2;
 
-    result[0] = 'S';
-    result[1] = '1';
+    buf[0] = 'S';
+    buf[1] = '1';
 
     // byte count = address(2) + data + checksum(1)
     ubyte count = cast(ubyte)(data.length + 3);
-    hexByte(result[2 .. 4], count);
-    hexByte(result[4 .. 6], cast(ubyte)(address >> 8));
-    hexByte(result[6 .. 8], cast(ubyte)(address & 0xFF));
+    hexByte(buf[2 .. 4], count);
+    hexByte(buf[4 .. 6], cast(ubyte)(address >> 8));
+    hexByte(buf[6 .. 8], cast(ubyte)(address & 0xFF));
 
     ubyte sum = count;
     sum += cast(ubyte)(address >> 8);
@@ -39,14 +38,23 @@ char[] srecEncode(const(ubyte)[] data, ushort address)
 
     foreach (i, b; data)
     {
-        hexByte(result[8 + i * 2 .. 10 + i * 2], b);
+        hexByte(buf[8 + i * 2 .. 10 + i * 2], b);
         sum += b;
     }
 
     ubyte checksum = cast(ubyte)(~sum); // one's complement
-    hexByte(result[$ - 2 .. $], checksum);
+    hexByte(buf[len - 2 .. len], checksum);
 
-    return result;
+    return buf[0 .. len];
+}
+
+/// Convenience: allocates buffer internally.
+char[] srecEncode(const(ubyte)[] data, ushort address)
+{
+    if (data.length == 0)
+        return null;
+
+    return srecEncode(data, address, new char[10 + data.length * 2]);
 }
 
 /// Returns the S-record EOF record (S9 with address 0000).
@@ -56,8 +64,9 @@ string srecEof()
 }
 
 /// Decode a single S-record line.
+/// Buffer overload: decode into caller-provided buffer, return filled slice.
 /// Returns data bytes for S1/S2/S3 (data) records, null for other types.
-ubyte[] srecDecode(const(char)[] line)
+ubyte[] srecDecode(const(char)[] line, ubyte[] buf)
 {
     if (line.length == 0)
         return null;
@@ -114,10 +123,16 @@ ubyte[] srecDecode(const(char)[] line)
         throw new Exception("S-record byte count too small for address size");
 
     size_t dataStart = 4 + addrBytes * 2;
-    ubyte[] data = new ubyte[dataLen];
     foreach (i; 0 .. dataLen)
-        data[i] = parseHexByte(line[dataStart + i * 2 .. dataStart + i * 2 + 2]);
-    return data;
+        buf[i] = parseHexByte(line[dataStart + i * 2 .. dataStart + i * 2 + 2]);
+    return buf[0 .. dataLen];
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] srecDecode(const(char)[] line)
+{
+    size_t bufLen = line.length > 10 ? (line.length - 10) / 2 : 0;
+    return srecDecode(line, new ubyte[bufLen]);
 }
 
 private void hexByte(char[] dst, ubyte b)

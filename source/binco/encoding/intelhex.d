@@ -13,7 +13,8 @@ module binco.encoding.intelhex;
 private immutable char[16] hexDigitsUpper = "0123456789ABCDEF";
 
 /// Encode a chunk of data as an Intel HEX type 00 (data) record.
-char[] intelHexEncode(const(ubyte)[] data, ushort address)
+/// Buffer overload: encode into caller-provided buffer, return filled slice.
+char[] intelHexEncode(const(ubyte)[] data, ushort address, char[] buf)
 {
     if (data.length == 0)
         return null;
@@ -21,15 +22,13 @@ char[] intelHexEncode(const(ubyte)[] data, ushort address)
         throw new Exception("Intel HEX record data too long (max 255 bytes)");
 
     ubyte count = cast(ubyte) data.length;
-    // :LL AAAA TT [DD...] CC
-    // 1 + 2 + 4 + 2 + data.length*2 + 2 = 11 + data.length*2
-    char[] result = new char[11 + data.length * 2];
+    size_t len = 11 + data.length * 2;
 
-    result[0] = ':';
-    hexByte(result[1 .. 3], count);
-    hexByte(result[3 .. 5], cast(ubyte)(address >> 8));
-    hexByte(result[5 .. 7], cast(ubyte)(address & 0xFF));
-    hexByte(result[7 .. 9], 0x00); // type 00 = data
+    buf[0] = ':';
+    hexByte(buf[1 .. 3], count);
+    hexByte(buf[3 .. 5], cast(ubyte)(address >> 8));
+    hexByte(buf[5 .. 7], cast(ubyte)(address & 0xFF));
+    hexByte(buf[7 .. 9], 0x00); // type 00 = data
 
     ubyte checksum = count;
     checksum += cast(ubyte)(address >> 8);
@@ -38,14 +37,23 @@ char[] intelHexEncode(const(ubyte)[] data, ushort address)
 
     foreach (i, b; data)
     {
-        hexByte(result[9 + i * 2 .. 11 + i * 2], b);
+        hexByte(buf[9 + i * 2 .. 11 + i * 2], b);
         checksum += b;
     }
 
     checksum = cast(ubyte)(~checksum + 1); // two's complement
-    hexByte(result[$ - 2 .. $], checksum);
+    hexByte(buf[len - 2 .. len], checksum);
 
-    return result;
+    return buf[0 .. len];
+}
+
+/// Convenience: allocates buffer internally.
+char[] intelHexEncode(const(ubyte)[] data, ushort address)
+{
+    if (data.length == 0)
+        return null;
+
+    return intelHexEncode(data, address, new char[11 + data.length * 2]);
 }
 
 /// Returns the Intel HEX EOF record.
@@ -55,8 +63,9 @@ string intelHexEof()
 }
 
 /// Decode a single Intel HEX record line.
+/// Buffer overload: decode into caller-provided buffer, return filled slice.
 /// Returns data bytes for type 00 records, null for other record types.
-ubyte[] intelHexDecode(const(char)[] line)
+ubyte[] intelHexDecode(const(char)[] line, ubyte[] buf)
 {
     if (line.length == 0)
         return null;
@@ -85,10 +94,16 @@ ubyte[] intelHexDecode(const(char)[] line)
     if (type != 0x00)
         return null;
 
-    ubyte[] data = new ubyte[count];
     foreach (i; 0 .. count)
-        data[i] = parseHexByte(line[9 + i * 2 .. 11 + i * 2]);
-    return data;
+        buf[i] = parseHexByte(line[9 + i * 2 .. 11 + i * 2]);
+    return buf[0 .. count];
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] intelHexDecode(const(char)[] line)
+{
+    size_t bufLen = line.length > 11 ? (line.length - 11) / 2 : 0;
+    return intelHexDecode(line, new ubyte[bufLen]);
 }
 
 private void hexByte(char[] dst, ubyte b)

@@ -202,21 +202,49 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     }
 }
 
-char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
+size_t maxEncodedSize(EncodingType encoding, size_t chunkSize)
 {
-    // TODO: Concern: .dup doesn't re-use gc buffer but creates a new one every time
-    //       Caller could provide buffer and callee could resize it if necessary
+    final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        return chunkSize * 6 + 4;
+    case ascii85:
+        return (chunkSize + 3) / 4 * 5;
+    case base2:
+        return chunkSize * 8;
+    case base16:
+        return chunkSize * 2;
+    case base64:
+    case base64u:
+    case base64up:
+        return (chunkSize + 2) / 3 * 4;
+    case base91:
+        return chunkSize * 16 / 13 + 2;
+    case intelhex:
+        return 11 + chunkSize * 2;
+    case srecord:
+        return 10 + chunkSize * 2;
+    case uuencode:
+    case xxencode:
+        return 1 + (chunkSize + 2) / 3 * 4;
+    }
+}
+
+/// Encode into caller-provided buffer, return filled slice.
+char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase, char[] buf)
+{
     final switch (encoding) with (EncodingType) {
     case array_c:
     case array_csharp:
     case array_d:
         return arrayEncode(data, uppercase);
     case ascii85:
-        return ascii85Encode(data).dup;
+        return ascii85Encode(data, buf);
     case base2:
-        return base2Encode(data).dup;
+        return base2Encode(data, buf);
     case base16:
-        return base16Encode(data, uppercase).dup;
+        return base16Encode(data, uppercase, buf);
     case base64:
         return Base64.encode(data);
     case base64u:
@@ -224,15 +252,48 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
     case base64up:
         return Base64URL.encode(data);
     case base91:
-        return base91Encode(data).dup;
+        return base91Encode(data, buf);
     case intelhex:
-        return intelHexEncode(data, 0).dup;
+        return intelHexEncode(data, 0, buf);
     case srecord:
-        return srecEncode(data, 0).dup;
+        return srecEncode(data, 0, buf);
     case uuencode:
-        return uuEncode(data).dup;
+        return uuEncode(data, false, buf);
     case xxencode:
-        return uuEncode(data, true).dup;
+        return uuEncode(data, true, buf);
+    }
+}
+
+/// Convenience: allocates internally.
+char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
+{
+    final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        return arrayEncode(data, uppercase);
+    case ascii85:
+        return ascii85Encode(data);
+    case base2:
+        return base2Encode(data);
+    case base16:
+        return base16Encode(data, uppercase);
+    case base64:
+        return Base64.encode(data);
+    case base64u:
+        return Base64URLNoPadding.encode(data);
+    case base64up:
+        return Base64URL.encode(data);
+    case base91:
+        return base91Encode(data);
+    case intelhex:
+        return intelHexEncode(data, 0);
+    case srecord:
+        return srecEncode(data, 0);
+    case uuencode:
+        return uuEncode(data);
+    case xxencode:
+        return uuEncode(data, true);
     }
 }
 
@@ -252,6 +313,40 @@ char[] arrayEncode(const(ubyte)[] data, bool uppercase)
     return buf[];
 }
 
+/// Decode into caller-provided buffer, return filled slice.
+ubyte[] decodeData(EncodingType encoding, const(char)[] line, ubyte[] buf)
+{
+    final switch (encoding) with (EncodingType) {
+    case array_c:
+    case array_csharp:
+    case array_d:
+        throw new Exception(text("Decoding not supported for ", encoding));
+    case ascii85:
+        return ascii85Decode(line, buf);
+    case base2:
+        return base2Decode(line, buf);
+    case base16:
+        return base16Decode(line, buf);
+    case base64:
+        return Base64.decode(line);
+    case base64u:
+        return Base64URLNoPadding.decode(line);
+    case base64up:
+        return Base64URL.decode(line);
+    case base91:
+        return base91Decode(line, buf);
+    case intelhex:
+        return intelHexDecode(line, buf);
+    case srecord:
+        return srecDecode(line, buf);
+    case uuencode:
+        return uuDecode(line, false, buf);
+    case xxencode:
+        return uuDecode(line, true, buf);
+    }
+}
+
+/// Convenience: allocates internally.
 ubyte[] decodeData(EncodingType encoding, const(char)[] line)
 {
     final switch (encoding) with (EncodingType) {
@@ -480,49 +575,58 @@ void main(string[] args)
     {
         // Re-encode loop with address tracking for Intel HEX / S-record
         ushort ihexAddr;
+        ubyte[] decodeBuf = new ubyte[4096];
+        char[] encodeBuf = new char[8192];
         foreach (line; fileIn.byLine())
         {
-            ubyte[] decoded = decodeData(decode, line);
+            if (decodeBuf.length < line.length)
+                decodeBuf = new ubyte[line.length];
+            ubyte[] decoded = decodeData(decode, line, decodeBuf);
             // Intel HEX / S-record lines can be non-data types
             // In that case, disregard line (silently)
             if (decoded is null)
                 continue;
+            size_t needed = maxEncodedSize(encode, decoded.length);
+            if (encodeBuf.length < needed)
+                encodeBuf = new char[needed];
             if (encode == EncodingType.intelhex)
             {
-                fileOut.writeln(intelHexEncode(decoded, ihexAddr));
+                fileOut.writeln(intelHexEncode(decoded, ihexAddr, encodeBuf));
                 ihexAddr += cast(ushort) decoded.length;
             }
             else if (encode == EncodingType.srecord)
             {
-                fileOut.writeln(srecEncode(decoded, ihexAddr));
+                fileOut.writeln(srecEncode(decoded, ihexAddr, encodeBuf));
                 ihexAddr += cast(ushort) decoded.length;
             }
             else
-                fileOut.writeln(encodeData(encode, decoded, ouppercase));
+                fileOut.writeln(encodeData(encode, decoded, ouppercase, encodeBuf));
         }
     }
     else if (wantEncode)
     {
+        int chunkSize = columnsToChunkSize(encode, ocolumns);
+        char[] encodeBuf = new char[maxEncodedSize(encode, chunkSize)];
         switch (encode) with (EncodingType) {
         case intelhex:
             ushort addr;
-            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+            foreach (chunk; fileIn.byChunk(chunkSize))
             {
-                fileOut.writeln(intelHexEncode(chunk, addr));
+                fileOut.writeln(intelHexEncode(chunk, addr, encodeBuf));
                 addr += cast(ushort) chunk.length;
             }
             break;
         case srecord:
             ushort saddr;
-            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
+            foreach (chunk; fileIn.byChunk(chunkSize))
             {
-                fileOut.writeln(srecEncode(chunk, saddr));
+                fileOut.writeln(srecEncode(chunk, saddr, encodeBuf));
                 saddr += cast(ushort) chunk.length;
             }
             break;
         default:
-            foreach (chunk; fileIn.byChunk(columnsToChunkSize(encode, ocolumns)))
-                fileOut.writeln(encodeData(encode, chunk, ouppercase));
+            foreach (chunk; fileIn.byChunk(chunkSize))
+                fileOut.writeln(encodeData(encode, chunk, ouppercase, encodeBuf));
         }
     }
     else // decode only
@@ -531,7 +635,7 @@ void main(string[] args)
         bool isIntelHex = (decode == EncodingType.intelhex);
         bool isSrec = (decode == EncodingType.srecord);
         bool isAscii85 = (decode == EncodingType.ascii85);
-        // TODO: Concern: .byLine grows a buffer until a line is met
+        ubyte[] decodeBuf = new ubyte[4096];
         foreach (line; fileIn.byLine())
         {
             if (isUUXX)
@@ -540,30 +644,33 @@ void main(string[] args)
                 if (line.startsWith("begin ") || line == "end" || line == "`")
                     continue;
             }
-            
+
+            if (decodeBuf.length < line.length)
+                decodeBuf.length = line.length;
+
             if (isIntelHex)
             {
-                ubyte[] data = intelHexDecode(line);
+                ubyte[] data = intelHexDecode(line, decodeBuf);
                 if (data is null)
                     continue;
                 fileOut.rawWrite(data);
             }
             else if (isSrec)
             {
-                ubyte[] data = srecDecode(line);
+                ubyte[] data = srecDecode(line, decodeBuf);
                 if (data is null)
                     continue;
                 fileOut.rawWrite(data);
             }
             else if (isAscii85)
             {
-                ubyte[] data = ascii85Decode(line);
+                ubyte[] data = ascii85Decode(line, decodeBuf);
                 if (data is null)
                     continue;
                 fileOut.rawWrite(data);
             }
             else
-                fileOut.rawWrite(decodeData(decode, line));
+                fileOut.rawWrite(decodeData(decode, line, decodeBuf));
         }
     }
     

@@ -7,15 +7,13 @@
 /// License: BSD-3-Clause-Clear
 module binco.encoding.ascii85;
 
-string ascii85Encode(const(ubyte)[] data)
+/// Encode into caller-provided buffer, return filled slice.
+char[] ascii85Encode(const(ubyte)[] data, char[] buf)
 {
     if (data.length == 0)
-        return "";
+        return buf[0 .. 0];
 
-    import std.array : appender;
-
-    auto buf = appender!(char[]);
-
+    size_t pos = 0;
     size_t i = 0;
     while (i < data.length)
     {
@@ -29,7 +27,7 @@ string ascii85Encode(const(ubyte)[] data)
 
             if (val == 0)
             {
-                buf.put('z');
+                buf[pos++] = 'z';
             }
             else
             {
@@ -39,7 +37,8 @@ string ascii85Encode(const(ubyte)[] data)
                     encoded[j] = cast(char)(val % 85 + '!');
                     val /= 85;
                 }
-                buf.put(encoded[]);
+                buf[pos .. pos + 5] = encoded[];
+                pos += 5;
             }
             i += 4;
         }
@@ -61,20 +60,30 @@ string ascii85Encode(const(ubyte)[] data)
                 encoded[j] = cast(char)(val % 85 + '!');
                 val /= 85;
             }
-            buf.put(encoded[0 .. remaining + 1]);
+            buf[pos .. pos + remaining + 1] = encoded[0 .. remaining + 1];
+            pos += remaining + 1;
             i += remaining;
         }
     }
 
-    return cast(string) buf[];
+    return buf[0 .. pos];
 }
 
-ubyte[] ascii85Decode(const(char)[] text)
+/// Convenience: allocates buffer internally.
+char[] ascii85Encode(const(ubyte)[] data)
+{
+    if (data.length == 0)
+        return null;
+
+    // Worst case: 5 chars per 4 bytes (no z-shortcuts)
+    return ascii85Encode(data, new char[(data.length + 3) / 4 * 5]);
+}
+
+/// Decode into caller-provided buffer, return filled slice.
+ubyte[] ascii85Decode(const(char)[] text, ubyte[] buf)
 {
     if (text.length == 0)
         return null;
-
-    import std.array : appender;
 
     // Strip <~ prefix and ~> suffix if present
     const(char)[] input = text;
@@ -86,17 +95,32 @@ ubyte[] ascii85Decode(const(char)[] text)
     if (input.length == 0)
         return null;
 
-    // Collect valid characters, expanding z shortcut
-    auto chars = appender!(char[]);
+    size_t pos = 0;
+    char[5] group = void;
+    size_t groupLen = 0;
+
     foreach (c; input)
     {
         if (c == 'z')
         {
-            chars.put("!!!!!");
+            buf[pos .. pos + 4] = 0;
+            pos += 4;
         }
         else if (c >= '!' && c <= 'u')
         {
-            chars.put(c);
+            group[groupLen++] = c;
+            if (groupLen == 5)
+            {
+                uint val = 0;
+                foreach (j; 0 .. 5)
+                    val = val * 85 + (group[j] - '!');
+
+                buf[pos++] = cast(ubyte)(val >> 24);
+                buf[pos++] = cast(ubyte)(val >> 16);
+                buf[pos++] = cast(ubyte)(val >> 8);
+                buf[pos++] = cast(ubyte)(val);
+                groupLen = 0;
+            }
         }
         else if (c == ' ' || c == '\t' || c == '\n' || c == '\r')
         {
@@ -108,50 +132,35 @@ ubyte[] ascii85Decode(const(char)[] text)
         }
     }
 
-    auto decoded = chars[];
-    if (decoded.length == 0)
-        return null;
-
-    auto buf = appender!(ubyte[]);
-
-    size_t i = 0;
-    while (i < decoded.length)
+    // Handle partial trailing group
+    if (groupLen > 0)
     {
-        size_t remaining = decoded.length - i;
-        if (remaining >= 5)
-        {
-            uint val = 0;
-            foreach (j; 0 .. 5)
-                val = val * 85 + (decoded[i + j] - '!');
+        if (groupLen < 2)
+            throw new Exception("Invalid Ascii85: trailing single character");
 
-            buf.put(cast(ubyte)(val >> 24));
-            buf.put(cast(ubyte)(val >> 16));
-            buf.put(cast(ubyte)(val >> 8));
-            buf.put(cast(ubyte)(val));
-            i += 5;
-        }
-        else
-        {
-            if (remaining < 2)
-                throw new Exception("Invalid Ascii85: trailing single character");
+        // Pad with 'u' (value 84)
+        foreach (j; groupLen .. 5)
+            group[j] = 'u';
 
-            uint val = 0;
-            foreach (j; 0 .. 5)
-            {
-                if (j < remaining)
-                    val = val * 85 + (decoded[i + j] - '!');
-                else
-                    val = val * 85 + 84; // pad with 'u'
-            }
+        uint val = 0;
+        foreach (j; 0 .. 5)
+            val = val * 85 + (group[j] - '!');
 
-            foreach (j; 0 .. remaining - 1)
-                buf.put(cast(ubyte)(val >> (24 - j * 8)));
-
-            i += remaining;
-        }
+        foreach (j; 0 .. groupLen - 1)
+            buf[pos++] = cast(ubyte)(val >> (24 - j * 8));
     }
 
-    return buf[];
+    return pos ? buf[0 .. pos] : null;
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] ascii85Decode(const(char)[] text)
+{
+    if (text.length == 0)
+        return null;
+
+    // Worst case: each 'z' produces 4 bytes
+    return ascii85Decode(text, new ubyte[text.length * 4]);
 }
 
 unittest

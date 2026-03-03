@@ -5,37 +5,51 @@
 /// License: BSD-3-Clause-Clear
 module binco.encoding.base16;
 
-string base16Encode(const(ubyte)[] data, bool upper = true)
+/// Encode into caller-provided buffer, return filled slice.
+char[] base16Encode(const(ubyte)[] data, bool upper, char[] buf)
 {
     immutable char[16] digits = upper ? "0123456789ABCDEF" : "0123456789abcdef";
-    char[] result = new char[data.length * 2];
 
     foreach (i, b; data)
     {
-        result[i * 2]     = digits[b >> 4];
-        result[i * 2 + 1] = digits[b & 0x0F];
+        buf[i * 2]     = digits[b >> 4];
+        buf[i * 2 + 1] = digits[b & 0x0F];
     }
 
-    return cast(string) result;
+    return buf[0 .. data.length * 2];
 }
 
-ubyte[] base16Decode(const(char)[] hex)
+/// Convenience: allocates buffer internally.
+char[] base16Encode(const(ubyte)[] data, bool upper = true)
 {
-    import std.format : format;
+    return base16Encode(data, upper, new char[data.length * 2]);
+}
 
+/// Decode into caller-provided buffer, return filled slice.
+ubyte[] base16Decode(const(char)[] hex, ubyte[] buf)
+{
     if (hex.length % 2 != 0)
         throw new Exception("Invalid base16 input: odd length");
 
-    ubyte[] result = new ubyte[hex.length / 2];
+    size_t count = hex.length / 2;
 
-    foreach (i; 0 .. result.length)
+    foreach (i; 0 .. count)
     {
         ubyte hi = hexVal(hex[i * 2]);
         ubyte lo = hexVal(hex[i * 2 + 1]);
-        result[i] = cast(ubyte)((hi << 4) | lo);
+        buf[i] = cast(ubyte)((hi << 4) | lo);
     }
 
-    return result;
+    return buf[0 .. count];
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] base16Decode(const(char)[] hex)
+{
+    if (hex.length % 2 != 0)
+        throw new Exception("Invalid base16 input: odd length");
+
+    return base16Decode(hex, new ubyte[hex.length / 2]);
 }
 
 private ubyte hexVal(char c)

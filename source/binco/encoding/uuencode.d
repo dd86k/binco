@@ -28,17 +28,16 @@ private ubyte[256] buildReverse(const char[64] table)
 }
 
 /// Encode a chunk of bytes into a single UU/XX encoded line (with length prefix char).
-char[] uuEncode(const(ubyte)[] data, bool xxVariant = false)
+/// Buffer overload: encode into caller-provided buffer, return filled slice.
+char[] uuEncode(const(ubyte)[] data, bool xxVariant, char[] buf)
 {
     if (data.length == 0)
         return null;
 
     immutable table = xxVariant ? xxTable : uuTable;
-    size_t nGroups = (data.length + 2) / 3;
-    char[] result = new char[1 + nGroups * 4];
 
     // Length character
-    result[0] = table[data.length & 0x3F];
+    buf[0] = table[data.length & 0x3F];
 
     size_t pos = 1;
     size_t i = 0;
@@ -48,19 +47,30 @@ char[] uuEncode(const(ubyte)[] data, bool xxVariant = false)
         ubyte b = (i + 1 < data.length) ? data[i + 1] : 0;
         ubyte c = (i + 2 < data.length) ? data[i + 2] : 0;
 
-        result[pos++] = table[(a >> 2) & 0x3F];
-        result[pos++] = table[((a << 4) | (b >> 4)) & 0x3F];
-        result[pos++] = table[((b << 2) | (c >> 6)) & 0x3F];
-        result[pos++] = table[c & 0x3F];
+        buf[pos++] = table[(a >> 2) & 0x3F];
+        buf[pos++] = table[((a << 4) | (b >> 4)) & 0x3F];
+        buf[pos++] = table[((b << 2) | (c >> 6)) & 0x3F];
+        buf[pos++] = table[c & 0x3F];
 
         i += 3;
     }
 
-    return result;
+    return buf[0 .. pos];
+}
+
+/// Convenience: allocates buffer internally.
+char[] uuEncode(const(ubyte)[] data, bool xxVariant = false)
+{
+    if (data.length == 0)
+        return null;
+
+    size_t nGroups = (data.length + 2) / 3;
+    return uuEncode(data, xxVariant, new char[1 + nGroups * 4]);
 }
 
 /// Decode a single UU/XX encoded line (strips length prefix, uses it for exact byte count).
-ubyte[] uuDecode(const(char)[] line, bool xxVariant = false)
+/// Buffer overload: decode into caller-provided buffer, return filled slice.
+ubyte[] uuDecode(const(char)[] line, bool xxVariant, ubyte[] buf)
 {
     if (line.length == 0)
         return null;
@@ -74,8 +84,6 @@ ubyte[] uuDecode(const(char)[] line, bool xxVariant = false)
         return null;
 
     const(char)[] encoded = line[1 .. $];
-    size_t nGroups = (encoded.length) / 4;
-    ubyte[] buf = new ubyte[nGroups * 3];
 
     size_t pos = 0;
     for (size_t i = 0; i + 3 < encoded.length; i += 4)
@@ -94,6 +102,16 @@ ubyte[] uuDecode(const(char)[] line, bool xxVariant = false)
     }
 
     return buf[0 .. lenVal];
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] uuDecode(const(char)[] line, bool xxVariant = false)
+{
+    if (line.length == 0)
+        return null;
+
+    size_t nGroups = (line.length > 1) ? (line.length - 1) / 4 : 0;
+    return uuDecode(line, xxVariant, new ubyte[nGroups * 3]);
 }
 
 unittest

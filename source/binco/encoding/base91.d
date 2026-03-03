@@ -18,15 +18,13 @@ private immutable ubyte[256] dectab = () {
     return t;
 }();
 
-string base91Encode(const(ubyte)[] data)
+/// Encode into caller-provided buffer, return filled slice.
+char[] base91Encode(const(ubyte)[] data, char[] buf)
 {
     if (data.length == 0)
-        return "";
+        return buf[0 .. 0];
 
-    import std.array : appender;
-
-    auto buf = appender!(char[]);
-
+    size_t pos = 0;
     uint b = 0; // bit accumulator
     uint n = 0; // number of bits in accumulator
 
@@ -49,31 +47,39 @@ string base91Encode(const(ubyte)[] data)
                 b >>= 14;
                 n -= 14;
             }
-            buf.put(enctab[v % 91]);
-            buf.put(enctab[v / 91]);
+            buf[pos++] = enctab[v % 91];
+            buf[pos++] = enctab[v / 91];
         }
     }
 
     // Flush remaining bits
     if (n > 0)
     {
-        buf.put(enctab[b % 91]);
+        buf[pos++] = enctab[b % 91];
         if (n > 7 || b > 90)
-            buf.put(enctab[b / 91]);
+            buf[pos++] = enctab[b / 91];
     }
 
-    return cast(string) buf[];
+    return buf[0 .. pos];
 }
 
-ubyte[] base91Decode(const(char)[] text)
+/// Convenience: allocates buffer internally.
+char[] base91Encode(const(ubyte)[] data)
+{
+    if (data.length == 0)
+        return null;
+
+    // Worst case: ~16 chars per 13 bytes + 2 for flush
+    return base91Encode(data, new char[data.length * 16 / 13 + 2]);
+}
+
+/// Decode into caller-provided buffer, return filled slice.
+ubyte[] base91Decode(const(char)[] text, ubyte[] buf)
 {
     if (text.length == 0)
         return null;
 
-    import std.array : appender;
-
-    auto buf = appender!(ubyte[]);
-
+    size_t pos = 0;
     uint b = 0; // bit accumulator
     uint n = 0; // number of bits in accumulator
     int v = -1; // first value of pair (-1 = waiting for first)
@@ -96,7 +102,7 @@ ubyte[] base91Decode(const(char)[] text)
 
             while (n >= 8)
             {
-                buf.put(cast(ubyte)(b & 255));
+                buf[pos++] = cast(ubyte)(b & 255);
                 b >>= 8;
                 n -= 8;
             }
@@ -107,10 +113,20 @@ ubyte[] base91Decode(const(char)[] text)
     // Flush remaining bits from unpaired final character
     if (v != -1)
     {
-        buf.put(cast(ubyte)((b | v << n) & 255));
+        buf[pos++] = cast(ubyte)((b | v << n) & 255);
     }
 
-    return buf[];
+    return pos ? buf[0 .. pos] : null;
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] base91Decode(const(char)[] text)
+{
+    if (text.length == 0)
+        return null;
+
+    // Worst case: ~7/8 byte per char + 1
+    return base91Decode(text, new ubyte[text.length]);
 }
 
 unittest

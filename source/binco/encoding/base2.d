@@ -5,22 +5,28 @@
 /// License: BSD-3-Clause-Clear
 module binco.encoding.base2;
 
-string base2Encode(const(ubyte)[] data)
+/// Encode into caller-provided buffer, return filled slice.
+char[] base2Encode(const(ubyte)[] data, char[] buf)
 {
-    char[] result = new char[data.length * 8];
-
     foreach (i, b; data)
     {
         foreach (bit; 0 .. 8)
-            result[i * 8 + bit] = (b >> (7 - bit)) & 1 ? '1' : '0';
+            buf[i * 8 + bit] = (b >> (7 - bit)) & 1 ? '1' : '0';
     }
 
-    return cast(string) result;
+    return buf[0 .. data.length * 8];
 }
 
-ubyte[] base2Decode(const(char)[] bin)
+/// Convenience: allocates buffer internally.
+char[] base2Encode(const(ubyte)[] data)
 {
-    ubyte[] result;
+    return base2Encode(data, new char[data.length * 8]);
+}
+
+/// Decode into caller-provided buffer, return filled slice.
+ubyte[] base2Decode(const(char)[] bin, ubyte[] buf)
+{
+    size_t pos;
     ubyte val;
     int bitCount;
 
@@ -31,7 +37,7 @@ ubyte[] base2Decode(const(char)[] bin)
         val = cast(ubyte)((val << 1) | (c - '0'));
         if (++bitCount == 8)
         {
-            result ~= val;
+            buf[pos++] = val;
             val = 0;
             bitCount = 0;
         }
@@ -40,7 +46,13 @@ ubyte[] base2Decode(const(char)[] bin)
     if (bitCount != 0)
         throw new Exception("Invalid base2 input: length not a multiple of 8");
 
-    return result;
+    return pos ? buf[0 .. pos] : null;
+}
+
+/// Convenience: allocates buffer internally.
+ubyte[] base2Decode(const(char)[] bin)
+{
+    return base2Decode(bin, new ubyte[bin.length / 8]);
 }
 
 unittest
