@@ -19,7 +19,6 @@ enum Version   = "0.3.0";
 enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
 
 // Possible future encodings:
-//z85           // ZeroMQ
 //base1024      // https://github.com/shea256/emojicoding
 //base2048      // https://github.com/qntm/base2048
 //base32768     // https://github.com/qntm/base32768
@@ -45,6 +44,7 @@ enum EncodingType
     srecord,
     uuencode,
     xxencode,
+    z85,
 }
 enum ENCODINGS  = EnumMembers!EncodingType.length;
 enum NoEncoding = cast(EncodingType)-1;
@@ -147,6 +147,11 @@ immutable Selection[ENCODINGS] selection = [
         [ EncodingType.xxencode.stringof ],
         "XXEncoding"
     },
+    {
+        EncodingType.z85,
+        [ EncodingType.z85.stringof ],
+        "Z85 (ZeroMQ Base85)"
+    },
 ];
 
 EncodingType selectEncoding(string name)
@@ -194,6 +199,7 @@ int suggestColumns(EncodingType encoding)
     case base64u:
     case base64up:
     case base91:
+    case z85:
         return 76;
     case base2:
         return 72;
@@ -214,6 +220,7 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case array_d:
         return cols;
     case ascii85:
+    case z85:
         return cols / 5 * 4;
     case base2:
         return cols / 8;
@@ -251,6 +258,7 @@ size_t maxEncodedSize(EncodingType encoding, size_t chunkSize)
     case array_d:
         return chunkSize * 6 + 4;
     case ascii85:
+    case z85:
         return (chunkSize + 3) / 4 * 5;
     case base2:
         return chunkSize * 8;
@@ -290,6 +298,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase, ch
         return arrayEncode(data, uppercase);
     case ascii85:
         return ascii85Encode(data, buf);
+    case z85:
+        return z85Encode(data, buf);
     case base2:
         return base2Encode(data, buf);
     case base16:
@@ -333,6 +343,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return arrayEncode(data, uppercase);
     case ascii85:
         return ascii85Encode(data);
+    case z85:
+        return z85Encode(data);
     case base2:
         return base2Encode(data);
     case base16:
@@ -392,6 +404,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line, ubyte[] buf)
         throw new Exception(text("Decoding not supported for ", encoding));
     case ascii85:
         return ascii85Decode(line, buf);
+    case z85:
+        return z85Decode(line, buf);
     case base2:
         return base2Decode(line, buf);
     case base16:
@@ -435,6 +449,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         throw new Exception(text("Decoding not supported for ", encoding));
     case ascii85:
         return ascii85Decode(line);
+    case z85:
+        return z85Decode(line);
     case base2:
         return base2Decode(line);
     case base16:

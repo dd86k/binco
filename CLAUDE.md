@@ -26,6 +26,7 @@ dub test           # Run unittests
 - **`source/binco/encoding/package.d`** — Public package import.
 - **`source/binco/encoding/srec.d`** — Motorola S-Record implementation.
 - **`source/binco/encoding/uuencode.d`** — UUEncode and XXEncode implementation.
+- **`source/binco/encoding/z85.d`** — Z85 (ZeroMQ Base85) implementation.
 
 ## D Language Notes
 
