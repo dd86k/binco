@@ -6,10 +6,19 @@ Currently supports:
 - `array_c`: C array (encoding only)
 - `array_csharp`: C# array (encoding only)
 - `array_d`: D array (encoding only)
+- `array_go`: Go array (encoding only)
+- `array_java`: Java array (encoding only)
+- `array_python`: Python byte array (encoding only)
+- `array_rust`: Rust array (encoding only)
+- `array_d`: D array (encoding only)
 - `ascii85`: Ascii85
+- `base2`: Binary
 - `base16`: Hexadecimal
+- `base32`: Base32 (RFC 4648)
+- `base32h`: Base32 Extended Hex (RFC 4648)
+- `base32z`: Z-Base32
 - `base36`: Base36
-- `base58`: Base58
+- `base58`: Base58 (Bitcoin alphabet)
 - `base64`: Base64
 - `base64u`: Base64 URL without padding, RFC 4648 and 7515
 - `base64up`: Base64 URL with padding
@@ -18,6 +27,7 @@ Currently supports:
 - `srecord`, `srec`: Motorola S-Record
 - `uuencode`: UUEncoding
 - `xxencode`: XXEncoding
+- `z85`: Z85 (ZeroMQ Base85)
 
 Why? Well, I want to stop using random websites for this sort of thing.
 

@@ -28,6 +28,10 @@ enum EncodingType
     array_c,
     array_csharp,
     array_d,
+    array_go,
+    array_java,
+    array_python,
+    array_rust,
     ascii85,
     base2,
     base16,
@@ -65,6 +69,26 @@ immutable Selection[ENCODINGS] selection = [
         EncodingType.array_d,
         [ EncodingType.array_d.stringof ],
         "D array (encoding only)"
+    },
+    {
+        EncodingType.array_go,
+        [ EncodingType.array_go.stringof ],
+        "Go array (encoding only)"
+    },
+    {
+        EncodingType.array_java,
+        [ EncodingType.array_java.stringof ],
+        "Java array (encoding only)"
+    },
+    {
+        EncodingType.array_python,
+        [ EncodingType.array_python.stringof ],
+        "Python array (encoding only)"
+    },
+    {
+        EncodingType.array_rust,
+        [ EncodingType.array_rust.stringof ],
+        "Rust array (encoding only)"
     },
     {
         EncodingType.ascii85,
@@ -187,6 +211,10 @@ int suggestColumns(EncodingType encoding)
     case array_c:
     case array_csharp:
     case array_d:
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
         return 12;
     case ascii85:
     case base16:
@@ -218,6 +246,10 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case array_c:
     case array_csharp:
     case array_d:
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
         return cols;
     case ascii85:
     case z85:
@@ -256,7 +288,12 @@ size_t maxEncodedSize(EncodingType encoding, size_t chunkSize)
     case array_c:
     case array_csharp:
     case array_d:
+    case array_go:
+    case array_python:
+    case array_rust:
         return chunkSize * 6 + 4;
+    case array_java:
+        return chunkSize * 9 + 4;
     case ascii85:
     case z85:
         return (chunkSize + 3) / 4 * 5;
@@ -295,7 +332,11 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase, ch
     case array_c:
     case array_csharp:
     case array_d:
-        return arrayEncode(data, uppercase);
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
+        return arrayEncode(encoding, data, uppercase);
     case ascii85:
         return ascii85Encode(data, buf);
     case z85:
@@ -340,7 +381,11 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
     case array_c:
     case array_csharp:
     case array_d:
-        return arrayEncode(data, uppercase);
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
+        return arrayEncode(encoding, data, uppercase);
     case ascii85:
         return ascii85Encode(data);
     case z85:
@@ -378,14 +423,17 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
     }
 }
 
-char[] arrayEncode(const(ubyte)[] data, bool uppercase)
+char[] arrayEncode(EncodingType encoding, const(ubyte)[] data, bool uppercase)
 {
     import std.format : formattedWrite;
     import std.array : Appender, appender;
 
     Appender!(char[]) buf = appender!(char[]);
     buf.put("    ");
-    string fmt = uppercase ? "0x%02X" : "0x%02x";
+    bool isJava = encoding == EncodingType.array_java;
+    string fmt = isJava
+        ? (uppercase ? "(byte)0x%02X" : "(byte)0x%02x")
+        : (uppercase ? "0x%02X" : "0x%02x");
     foreach (i, b; data)
     {
         if (i) buf.put(", ");
@@ -401,6 +449,10 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line, ubyte[] buf)
     case array_c:
     case array_csharp:
     case array_d:
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
         throw new Exception(text("Decoding not supported for ", encoding));
     case ascii85:
         return ascii85Decode(line, buf);
@@ -446,6 +498,10 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
     case array_c:
     case array_csharp:
     case array_d:
+    case array_go:
+    case array_java:
+    case array_python:
+    case array_rust:
         throw new Exception(text("Decoding not supported for ", encoding));
     case ascii85:
         return ascii85Decode(line);
@@ -510,6 +566,18 @@ void encodingPrefix(EncodingType encoding, ref File file)
     case EncodingType.array_d:
         file.writeln("ubyte[] data = [");
         break;
+    case EncodingType.array_go:
+        file.writeln("var data = []byte{");
+        break;
+    case EncodingType.array_java:
+        file.writeln("byte[] data = {");
+        break;
+    case EncodingType.array_python:
+        file.writeln("data = bytes([");
+        break;
+    case EncodingType.array_rust:
+        file.writeln("let data: &[u8] = &[");
+        break;
     case EncodingType.ascii85:
         file.writeln("<~");
         break;
@@ -526,10 +594,18 @@ void encodingSuffix(EncodingType encoding, ref File file)
     switch (encoding) with (EncodingType) {
     case EncodingType.array_c:
     case EncodingType.array_csharp:
+    case EncodingType.array_java:
         file.writeln("};");
         break;
     case EncodingType.array_d:
+    case EncodingType.array_rust:
         file.writeln("];");
+        break;
+    case EncodingType.array_go:
+        file.writeln("}");
+        break;
+    case EncodingType.array_python:
+        file.writeln("])");
         break;
     case EncodingType.ascii85:
         file.writeln("~>");
