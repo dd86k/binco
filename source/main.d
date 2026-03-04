@@ -19,7 +19,6 @@ enum Version   = "0.3.0";
 enum Copyright = "Copyright (c) 2023-2026 dd86k <dd@dax.moe>";
 
 // Possible future encodings:
-//base36
 //z85           // ZeroMQ
 //base1024      // https://github.com/shea256/emojicoding
 //base2048      // https://github.com/qntm/base2048
@@ -36,6 +35,7 @@ enum EncodingType
     base32,
     base32h,
     base32z,
+    base36,
     base58,
     base64,         // Base64
     base64u,        // Base64 URL no-padding, RFC 4648 and 7515
@@ -96,6 +96,11 @@ immutable Selection[ENCODINGS] selection = [
         EncodingType.base32z,
         [ EncodingType.base32z.stringof, "zbase32" ],
         "Z-Base32"
+    },
+    {
+        EncodingType.base36,
+        [ EncodingType.base36.stringof ],
+        "Base36"
     },
     {
         EncodingType.base58,
@@ -183,6 +188,7 @@ int suggestColumns(EncodingType encoding)
     case base32:
     case base32h:
     case base32z:
+    case base36:
     case base58:
     case base64:
     case base64u:
@@ -221,6 +227,8 @@ int columnsToChunkSize(EncodingType encoding, int cols)
     case base64u:
     case base64up:
         return cols / 4 * 3;
+    case base36: // base36 expands ~1.55x
+        return cols * 100 / 155;
     case base58: // base58 expands ~1.37x
         return cols * 100 / 137;
     case base91: // base91 produces ~16 chars per 13 bytes on avg
@@ -256,6 +264,8 @@ size_t maxEncodedSize(EncodingType encoding, size_t chunkSize)
     case base64u:
     case base64up:
         return (chunkSize + 2) / 3 * 4;
+    case base36:
+        return chunkSize * 155 / 100 + 2;
     case base58:
         return chunkSize * 137 / 100 + 2;
     case base91:
@@ -290,6 +300,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase, ch
         return base32hEncode(data, uppercase, buf);
     case base32z:
         return base32zEncode(data, buf);
+    case base36:
+        return base36Encode(data, buf);
     case base58:
         return base58Encode(data, buf);
     case base64:
@@ -331,6 +343,8 @@ char[] encodeData(EncodingType encoding, const(ubyte)[] data, bool uppercase)
         return base32hEncode(data, uppercase);
     case base32z:
         return base32zEncode(data);
+    case base36:
+        return base36Encode(data);
     case base58:
         return base58Encode(data);
     case base64:
@@ -388,6 +402,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line, ubyte[] buf)
         return base32hDecode(line, buf);
     case base32z:
         return base32zDecode(line, buf);
+    case base36:
+        return base36Decode(line, buf);
     case base58:
         return base58Decode(line, buf);
     case base64:
@@ -429,6 +445,8 @@ ubyte[] decodeData(EncodingType encoding, const(char)[] line)
         return base32hDecode(line);
     case base32z:
         return base32zDecode(line);
+    case base36:
+        return base36Decode(line);
     case base58:
         return base58Decode(line);
     case base64:

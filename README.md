@@ -8,6 +8,8 @@ Currently supports:
 - `array_d`: D array (encoding only)
 - `ascii85`: Ascii85
 - `base16`: Hexadecimal
+- `base36`: Base36
+- `base58`: Base58
 - `base64`: Base64
 - `base64u`: Base64 URL without padding, RFC 4648 and 7515
 - `base64up`: Base64 URL with padding
