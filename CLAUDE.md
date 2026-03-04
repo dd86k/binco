@@ -19,6 +19,7 @@ dub test           # Run unittests
 - **`source/main.d`** — CLI entry point. Parses command-line options (`-e`/`-d` for encode/decode, `-i`/`-o` for file I/O) and dispatches to the appropriate encoder/decoder. Uses `std.base64` directly from Phobos for Base64 support.
 - **`source/binco/encoding/ascii85.d`** — Ascii85 implementation.
 - **`source/binco/encoding/base16.d`** — Base16 implementation.
+- **`source/binco/encoding/base58.d`** — Base58 (Bitcoin alphabet) implementation.
 - **`source/binco/encoding/base91.d`** — basE91 implementation.
 - **`source/binco/encoding/intelhex.d`** — Intel Hex implementation.
 - **`source/binco/encoding/package.d`** — Public package import.
