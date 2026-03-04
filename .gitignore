@@ -22,3 +22,6 @@ binco-test-*
 
 # Claude Code
 .claude/
+
+# Personal stuff
+perso/
