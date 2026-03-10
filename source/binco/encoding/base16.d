@@ -28,28 +28,31 @@ char[] base16Encode(const(ubyte)[] data, bool upper = true)
 /// Decode into caller-provided buffer, return filled slice.
 ubyte[] base16Decode(const(char)[] hex, ubyte[] buf)
 {
-    if (hex.length % 2 != 0)
-        throw new Exception("Invalid base16 input: odd length");
+    size_t b;
+    size_t i;
 
-    size_t count = hex.length / 2;
-
-    foreach (i; 0 .. count)
+    while (i < hex.length)
     {
-        ubyte hi = hexVal(hex[i * 2]);
-        ubyte lo = hexVal(hex[i * 2 + 1]);
-        buf[i] = cast(ubyte)((hi << 4) | lo);
+        // skip spaces for high nibble
+        while (i < hex.length && hex[i] == ' ') i++;
+        if (i >= hex.length) break;
+        char c0 = hex[i++];
+
+        // skip spaces for low nibble
+        while (i < hex.length && hex[i] == ' ') i++;
+        if (i >= hex.length) break;
+        char c1 = hex[i++];
+
+        buf[b++] = cast(ubyte)((hexVal(c0) << 4) | hexVal(c1));
     }
 
-    return buf[0 .. count];
+    return buf[0 .. b];
 }
 
 /// Convenience: allocates buffer internally.
 ubyte[] base16Decode(const(char)[] hex)
 {
-    if (hex.length % 2 != 0)
-        throw new Exception("Invalid base16 input: odd length");
-
-    return base16Decode(hex, new ubyte[hex.length / 2]);
+    return base16Decode(hex, new ubyte[(hex.length + 1) / 2]);
 }
 
 private ubyte hexVal(char c)
@@ -76,6 +79,12 @@ unittest
 
     // Decode mixed case
     assert(base16Decode("48656C6c6f") == cast(ubyte[])"Hello");
+
+    // Decode with spaces
+    assert(base16Decode("48 65 6C 6c 6f") == cast(ubyte[])"Hello");
+    
+    // Partial decode
+    assert(base16Decode("48 65 6C 6c 6") == cast(ubyte[])"Hell");
 
     // Round-trip
     immutable ubyte[] data = [0x00, 0xFF, 0x7F, 0x80, 0x01, 0xFE];
