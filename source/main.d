@@ -660,8 +660,7 @@ void main(string[] args)
     bool onosuffix;     /// If set, do not print suffix
     
     bool noArgs = args.length <= 1;
-
-    // TODO: EncodingType selectEncoding(string) for aliases
+    
     GetoptResult res = void;
     try res = getopt(args, config.caseSensitive,
         "dna",      "", {
@@ -730,7 +729,7 @@ void main(string[] args)
     {
         abort(1, ex.msg);
     }
-        
+    
     if (res.helpWanted || noArgs)
     {
         writeln(
@@ -753,16 +752,17 @@ void main(string[] args)
     
     bool wantEncode = encode != NoEncoding;
     bool wantDecode = decode != NoEncoding;
-
+    
     if (!wantEncode && !wantDecode)
         abort(1, "Encoding or decoding base not selected");
-
+    
     if (ocolumns == int.init && wantEncode)
         ocolumns = suggestColumns(encode);
-
-    File fileIn  = pathIn  ? File(pathIn,  "rb") : stdin;
+    
+    // NOTE: On Windows, opening a file in Byte Mode disables special treatment of \r
+    File fileIn  = pathIn  ? File(pathIn,  wantDecode ? "r" : "rb") : stdin;
     File fileOut = pathOut ? File(pathOut, "wb") : stdout;
-
+    
     if (wantEncode && onoprefix == false)
         encodingPrefix(encode, fileOut);
     
