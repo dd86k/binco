@@ -8,6 +8,18 @@ targetType "executable"
 
 stringImportPaths "."
 
+configuration "application" {
+	targetType "executable"
+	mainSourceFile "source/main.d"
+}
+
+configuration "integration" {
+	targetType "executable"
+	mainSourceFile "source/main.d"
+	sourcePaths "tests"
+	importPaths "tests"
+}
+
 buildType "static-debug" {
     buildOptions "debugMode" "debugInfo"
 	dflags "-L=-static" platform="dmd"
