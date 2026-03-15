@@ -83,13 +83,6 @@ Transcode a file to another encoding:
 $ binco -d base16 -i a.txt -e base64 -o b.txt
 ```
 
-# Limitations
-
-## Newlines
-
-Currently, due to a limitation to `File.byLine`, only the `\n` line terminator
-is understood by the decoder.
-
 # Building
 
 To build binco, you'll need any D compiler (dmd, gdc, ldc) and dub.
