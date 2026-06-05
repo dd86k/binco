@@ -579,7 +579,7 @@ void encodingPrefix(EncodingType encoding, ref File file)
         file.writeln("let data: &[u8] = &[");
         break;
     case EncodingType.ascii85:
-        file.writeln("<~");
+        file.write("<~");
         break;
     case EncodingType.uuencode:
     case EncodingType.xxencode:
@@ -608,7 +608,7 @@ void encodingSuffix(EncodingType encoding, ref File file)
         file.writeln("])");
         break;
     case EncodingType.ascii85:
-        file.writeln("~>");
+        file.write("~>");
         break;
     case EncodingType.intelhex:
         file.writeln(intelHexEof());
